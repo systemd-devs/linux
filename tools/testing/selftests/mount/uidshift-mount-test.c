@@ -25,8 +25,12 @@
 # define CLONE_NEWUSER 0x10000000
 #endif
 
+#define UID_INVALID ((uid_t) -1)
+
 static int efd;
 static int efd_userns_child;
+static uid_t arg_uid_shift = UID_INVALID;
+static uid_t arg_uid_range = 0x10000U;
 
 static int vmaybe_write_file(bool enoent_ok, char *filename, char *fmt, va_list ap)
 {
@@ -114,12 +118,14 @@ static int setup_userns(pid_t pid)
                 goto err;
 
         snprintf(buf, sizeof(buf), "/proc/%d/uid_map", pid);
-	ret = write_file(buf, "0 1000 65534 \n");
+	ret = write_file(buf, "0 %u %u \n",
+                         arg_uid_shift, arg_uid_range);
         if (ret < 0)
                 goto err;
 
         snprintf(buf, sizeof(buf), "/proc/%d/gid_map", pid);
-	ret = write_file(buf, "0 1000 65534 \n");
+	ret = write_file(buf, "0 %u %u \n",
+                         arg_uid_shift, arg_uid_range);
         if (ret < 0)
                 goto err;
 
@@ -363,8 +369,65 @@ static int test_uidshift_mount(void)
         return 0;
 }
 
+static int parse_uid(const char *arg)
+{
+        int ret;
+        unsigned long l;
+        unsigned long long ll;
+        const char *range, *shift;
+        char *buffer = NULL, *x = NULL;
+
+        range = strchr(arg, ':');
+        if (range) {
+                buffer = strndup(arg, range - arg);
+                if (!buffer) {
+                        ret = -errno;
+                        printf("strndup() failed: %d (%m)\n", ret);
+                        return ret;
+                }
+
+                shift = buffer;
+                range++;
+
+                errno = 0;
+                l = strtoul(range, &x, 0);
+                if (!x || x == range || *x || errno ||
+                    (unsigned long) (unsigned) l != l || l == 0) {
+                        printf("failed to parse UID range: %s\n", range);
+                        return -ENXIO;
+                }
+
+                arg_uid_range = (unsigned) l;
+
+        } else {
+                shift = arg;
+        }
+
+        errno = 0;
+        x = NULL;
+        ll = strtoull(shift, &x, 0);
+        if (!x || x == shift || *x || errno ||
+            (unsigned long long) (unsigned) ll != ll ||
+            (uid_t) ll == (uid_t) 0xFFFFFFFF || /* INVALID_UID is special */
+            (uid_t) ll == (uid_t) 0xFFFF) {
+                printf("Failed to parse UID: %s\n", shift);
+                return -ENXIO;
+        }
+
+        arg_uid_shift = (unsigned) ll;
+
+        free(buffer);
+
+        return 0;
+}
+
 int main(int argc, char **argv)
 {
+        if (argc > 1) {
+                if (parse_uid(argv[1]) < 0)
+                        exit(EXIT_FAILURE);
+        }
+
         if (test_uidshift_mount() < 0) {
                 printf("uidshift mounting test failed\n");
                 exit(EXIT_FAILURE);
