@@ -136,27 +136,26 @@ err:
         return ret;
 }
 
-static int drop_to_user(void)
+static int update_uid_gid(void)
 {
         int ret;
+        uid_t uid = arg_uid_shift;
 
-        printf("getuid: %d\n", getuid());
-
-        ret = setgroups(0, NULL);
+        /*ret = setgroups(0, NULL);
         if (ret < 0) {
                 ret = -errno;
                 printf("setgroups() failed: %d (%m)\n", ret);
                 return ret;
-        }
+        }*/
 
-        ret = setresgid(1000, 1000, 1000);
+        ret = setresgid(uid, uid, uid);
         if (ret < 0) {
                 ret = -errno;
                 printf("setresgid() failed: %d (%m)\n", ret);
                 return ret;
         }
 
-        ret = setresuid(1000, 1000, 1000);
+        ret = setresuid(uid, uid, uid);
         if (ret < 0) {
                 ret = -errno;
                 printf("setresuid() failed: %d (%m)\n", ret);
@@ -166,17 +165,8 @@ static int drop_to_user(void)
         return 0;
 }
 
-static int setup_and_test_procfs(void)
+static int test_filesystems(void)
 {
-        int ret;
-
-        ret = mount("/proc", "/proc", "bind", MS_BIND, NULL);
-        if (ret < 0) {
-                ret = -errno;
-                printf("mount() failed: %d (%m)\n", ret);
-                return ret;
-        }
-
         /* TODO stat proc inode entries... */
 
 
@@ -219,9 +209,20 @@ static int outer_child(void)
                         _exit(EXIT_FAILURE);
                 }
 
-                ret = setup_and_test_procfs();
+                ret = mount("/proc", "/proc", "bind", MS_BIND, NULL);
                 if (ret < 0) {
-                        printf("failed at procfs test\n");
+                        ret = -errno;
+                        printf("mount() procfs failed: %d (%m)\n", ret);
+                        return ret;
+                }
+
+                ret = update_uid_gid();
+                if (ret < 0)
+                        _exit(EXIT_FAILURE);
+
+                ret = test_filesystems();
+                if (ret < 0) {
+                        printf("failed at filesystems test\n");
                         _exit(EXIT_FAILURE);
                 }
                         
