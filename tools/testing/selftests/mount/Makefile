@@ -13,7 +13,7 @@ include ../lib.mk
 
 override RUN_TESTS := if [ -f /proc/self/uid_map ] ; then \
 	./unprivileged-remount-test || echo \"selftests: unprivileged-remount-test [FAIL]\" ; \
-	sudo ./uidshift-mount-test || echo \"selftests: uidshift-mount-test [FAIL]\" ; fi
+	sudo ./uidshift-mount-test 1000 || echo \"selftests: uidshift-mount-test [FAIL]\" ; fi
 
 TEST_PROGS := unprivileged-remount-test uidshift-mount-test
 

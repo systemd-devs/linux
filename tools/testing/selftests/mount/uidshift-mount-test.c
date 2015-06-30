@@ -165,10 +165,15 @@ static int update_uid_gid(void)
         return 0;
 }
 
-static int test_filesystems(void)
+static int child_test_filesystems(void)
 {
         /* TODO stat proc inode entries... */
 
+        return 0;
+}
+
+static int parent_test_filesystems(void)
+{
 
         return 0;
 }
@@ -176,85 +181,44 @@ static int test_filesystems(void)
 static int outer_child(void)
 {
         int ret;
-        int status;
-        pid_t pid, rpid;
 	eventfd_t event_status = 0;
 
-        pid = syscall(__NR_clone, SIGCHLD|
-                      CLONE_NEWNS|CLONE_NEWUSER, NULL);
-        if (pid < 0) {
-                ret = -errno;
-		printf("clone() failed: %d (%m)\n", -errno);
-		return ret;
-        }
-
-        if (pid == 0) {
-		ret = prctl(PR_SET_PDEATHSIG, SIGKILL);
-		if (ret < 0) {
-			ret = -errno;
-			printf("error prctl(): %d (%m)\n", ret);
-			_exit(EXIT_FAILURE);
-		}
-
-		ret = eventfd_read(efd_userns_child, &event_status);
-		if (ret < 0 || event_status != 1) {
-			printf("error eventfd_read() *** \n");
-			_exit(EXIT_FAILURE);
-		}
-
-                ret = mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
-                if (ret < 0) {
-                        ret = -errno;
-                        printf("mount() failed: %d (%m)\n", ret);
-                        _exit(EXIT_FAILURE);
-                }
-
-                ret = mount("/proc", "/proc", "bind", MS_BIND, NULL);
-                if (ret < 0) {
-                        ret = -errno;
-                        printf("mount() procfs failed: %d (%m)\n", ret);
-                        return ret;
-                }
-
-                ret = update_uid_gid();
-                if (ret < 0)
-                        _exit(EXIT_FAILURE);
-
-                ret = test_filesystems();
-                if (ret < 0) {
-                        printf("failed at filesystems test\n");
-                        _exit(EXIT_FAILURE);
-                }
-                        
-                /* TODO: test here stats and other uidshift results */
-                execle("/bin/sh", "-sh", NULL, NULL);
-        }
-
-	ret = eventfd_write(efd, pid);
-	if (ret < 0) {
-		ret = -errno;
-		printf("error eventfd_write(): %d (%m)\n", ret);
-		return ret;
+	ret = eventfd_read(efd_userns_child, &event_status);
+	if (ret < 0 || event_status != 1) {
+		printf("error eventfd_read() *** \n");
+		return -1;
 	}
 
-        rpid = waitpid(pid, &status, 0);
-        if (rpid < 0) {
+        //ret = mount("/tmp", "/tmp", "tmpfs", MS_STRICTATIME,
+        //            "mode=1777");
+        ret = mount("/tmp", "/tmp", "bind", MS_BIND, NULL);
+        if (ret < 0) {
                 ret = -errno;
-                printf("waitpid() failed: %d (%m)\n", ret);
+                printf("mount() tmpfs failed: %d (%m)\n", ret);
                 return ret;
-        } 
-
-        if (rpid != pid) {
-		printf("waited for %d got %d\n", pid, rpid);
-                return -1;
         }
 
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                printf("child did not terminate cleanly\n");
-                return -1;
+        ret = mount("/proc", "/proc", "bind", MS_BIND, NULL);
+        if (ret < 0) {
+                ret = -errno;
+                printf("mount() procfs failed: %d (%m)\n", ret);
+                return ret;
         }
 
-        return 0;
+        ret = update_uid_gid();
+        if (ret < 0)
+                return ret;
+
+        ret = child_test_filesystems();
+        if (ret < 0) {
+                printf("failed at filesystems test\n");
+                return ret;
+        }
+
+        /* TODO: test here stats and other uidshift results */
+        execle("/bin/sh", "-sh", NULL, NULL);
+
+        return -1;
 }
 
 static void nop_handler(int sig) {}
@@ -292,10 +256,11 @@ static int test_uidshift_mount(void)
 		return ret;
 	}
 
-	pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWNS, NULL);
+	pid = syscall(__NR_clone, SIGCHLD|
+                      CLONE_NEWNS|CLONE_NEWUSER, NULL);
 	if (pid < 0) {
                 ret = -errno;
-		printf("clone() failed: %d (%m)\n", -errno);
+		printf("clone() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
@@ -322,6 +287,13 @@ static int test_uidshift_mount(void)
                         _exit(EXIT_FAILURE);
                 }
 
+                ret = eventfd_write(efd, 1);
+                if (ret < 0) {
+                        ret = -errno;
+		        printf("error eventfd_write(): %d (%m)\n", ret);
+                        _exit(EXIT_FAILURE);
+                }
+
                 ret = outer_child();
                 _exit(ret);
         }
@@ -333,7 +305,7 @@ static int test_uidshift_mount(void)
 		return ret;
 	}
 
-        ret = setup_userns(event_status);
+        ret = setup_userns(pid);
         if (ret < 0) {
                 ret = -errno;
                 printf("error mapping uid and gid in userns\n");
@@ -346,6 +318,8 @@ static int test_uidshift_mount(void)
 		printf("error eventfd_write(): %d (%m)\n", ret);
 		return ret;
 	}
+
+        ret = parent_test_filesystems();
 
         rpid = waitpid(pid, &status, 0);
         if (rpid < 0) {
