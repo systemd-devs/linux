@@ -2029,15 +2029,56 @@ static bool has_locked_children(struct mount *mnt, struct dentry *dentry)
 	return false;
 }
 
+static const match_table_t tokens = {
+        {Opt_vfs_uidshift, "vfs_uidshift=%u"},
+        {Opt_vfs_gidshift, "vfs_gidshift=%u"},
+        {Opt_err, NULL},
+};
+
+static int loopback_parse_options(char *options)
+{
+        substring_t args[MAX_OPT_ARGS];
+        char *origin, *p;
+        int ret = 0;
+
+        options = kstrdup(options, GFP_KERNEL);
+        if (!options)
+                return -ENOMEM;
+
+        origin = options;
+
+        while ((p = strsep(&options, ",")) != NULL) {
+                int token;
+
+                if (!*p)
+                        continue;
+
+                token = match_token(p, tokens, args);
+                switch (token) {
+                case Opt_vfs_uidshift:
+                        break;
+                case Opt_vfs_gidshift:
+                        break;
+                default:
+                        break;
+                }
+        }
+
+out:
+        kfree(origin);
+        return ret;
+}
+
 /*
  * do loopback mount.
  */
 static int do_loopback(struct path *path, const char *old_name,
-				int recurse)
+                       int recurse, void *data)
 {
 	struct path old_path;
 	struct mount *mnt = NULL, *old, *parent;
 	struct mountpoint *mp;
+        int pin_userns = 0;
 	int err;
 	if (!old_name || !*old_name)
 		return -EINVAL;
@@ -2048,6 +2089,14 @@ static int do_loopback(struct path *path, const char *old_name,
 	err = -EINVAL;
 	if (mnt_ns_loop(old_path.dentry))
 		goto out; 
+
+        if (*data) {
+                err = loopback_parse_options((char *)data);
+                if (err < 0)
+                        goto out;
+
+                pin_userns = 1;
+        }
 
 	mp = lock_mount(path);
 	err = PTR_ERR(mp);
@@ -2081,6 +2130,9 @@ static int do_loopback(struct path *path, const char *old_name,
 	}
 
 	mnt->mnt.mnt_flags &= ~MNT_LOCKED;
+
+        if (pin_userns)
+                mnt->mnt.user_ns = get_user_ns(current_user_ns());
 
 	err = graft_tree(mnt, parent, mp);
 	if (err) {
@@ -2675,7 +2727,7 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 		retval = do_remount(&path, flags & ~MS_REMOUNT, mnt_flags,
 				    data_page);
 	else if (flags & MS_BIND)
-		retval = do_loopback(&path, dev_name, flags & MS_REC);
+		retval = do_loopback(&path, dev_name, flags & MS_REC, data_page);
 	else if (flags & (MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE))
 		retval = do_change_type(&path, flags);
 	else if (flags & MS_MOVE)
