@@ -2046,6 +2046,7 @@ static int loopback_parse_options(char *options, int *pin_userns)
 {
         substring_t args[MAX_OPT_ARGS];
         char *origin, *p;
+        int idshift = 0;
         int ret = 0;
 
         if (!options)
@@ -2066,13 +2067,17 @@ static int loopback_parse_options(char *options, int *pin_userns)
                 token = match_token(p, tokens, args);
                 switch (token) {
                 case Opt_vfs_uidshift:
+                        idshift = 1;
                         break;
                 case Opt_vfs_gidshift:
+                        idshift = 1;
                         break;
                 default:
                         break;
                 }
         }
+
+        *pin_userns = idshift;
 
         kfree(origin);
         return ret;
