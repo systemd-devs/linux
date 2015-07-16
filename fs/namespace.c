@@ -21,6 +21,7 @@
 #include <linux/fsnotify.h>	/* fsnotify_vfsmount_delete */
 #include <linux/uaccess.h>
 #include <linux/proc_ns.h>
+#include <linux/parser.h>
 #include <linux/magic.h>
 #include <linux/bootmem.h>
 #include <linux/task_work.h>
@@ -51,6 +52,12 @@ static int __init set_mphash_entries(char *str)
 	return 1;
 }
 __setup("mphash_entries=", set_mphash_entries);
+
+enum {
+        Opt_vfs_uidshift,
+        Opt_vfs_gidshift,
+        Opt_err
+};
 
 static u64 event;
 static DEFINE_IDA(mnt_id_ida);
@@ -2035,11 +2042,14 @@ static const match_table_t tokens = {
         {Opt_err, NULL},
 };
 
-static int loopback_parse_options(char *options)
+static int loopback_parse_options(char *options, int *pin_userns)
 {
         substring_t args[MAX_OPT_ARGS];
         char *origin, *p;
         int ret = 0;
+
+        if (!options)
+                return ret;
 
         options = kstrdup(options, GFP_KERNEL);
         if (!options)
@@ -2064,7 +2074,6 @@ static int loopback_parse_options(char *options)
                 }
         }
 
-out:
         kfree(origin);
         return ret;
 }
@@ -2090,13 +2099,9 @@ static int do_loopback(struct path *path, const char *old_name,
 	if (mnt_ns_loop(old_path.dentry))
 		goto out; 
 
-        if (*data) {
-                err = loopback_parse_options((char *)data);
-                if (err < 0)
-                        goto out;
-
-                pin_userns = 1;
-        }
+        err = loopback_parse_options((char *)data, &pin_userns);
+        if (err < 0)
+                goto out;
 
 	mp = lock_mount(path);
 	err = PTR_ERR(mp);
