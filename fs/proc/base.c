@@ -1502,7 +1502,7 @@ int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 	const struct cred *cred;
 	struct pid_namespace *pid = dentry->d_sb->s_fs_info;
 
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 
 	rcu_read_lock();
 	stat->uid = GLOBAL_ROOT_UID;
@@ -3190,7 +3190,7 @@ static int proc_task_getattr(struct vfsmount *mnt, struct dentry *dentry, struct
 {
 	struct inode *inode = d_inode(dentry);
 	struct task_struct *p = get_proc_task(inode);
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 
 	if (p) {
 		stat->nlink += get_nr_threads(p);

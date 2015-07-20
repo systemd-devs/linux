@@ -734,7 +734,7 @@ static int proc_sys_getattr(struct vfsmount *mnt, struct dentry *dentry, struct 
 	if (IS_ERR(head))
 		return PTR_ERR(head);
 
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 	if (table)
 		stat->mode = (stat->mode & S_IFMT) | table->mode;
 

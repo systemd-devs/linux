@@ -4788,7 +4788,7 @@ int ext4_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	unsigned long long delalloc_blocks;
 
 	inode = d_inode(dentry);
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 
 	/*
 	 * If there is inline data in the inode, the inode will normally not

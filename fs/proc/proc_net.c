@@ -147,7 +147,7 @@ static int proc_tgid_net_getattr(struct vfsmount *mnt, struct dentry *dentry,
 
 	net = get_proc_task_net(inode);
 
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 
 	if (net != NULL) {
 		stat->nlink = net->proc_net->nlink;

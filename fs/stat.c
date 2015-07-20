@@ -18,7 +18,8 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
-void generic_fillattr(struct inode *inode, struct kstat *stat)
+void generic_fillattr(struct vfsmount *mnt, struct inode *inode,
+                      struct kstat *stat)
 {
 	stat->dev = inode->i_sb->s_dev;
 	stat->ino = inode->i_ino;
@@ -56,7 +57,7 @@ int vfs_getattr_nosec(struct path *path, struct kstat *stat)
 	if (inode->i_op->getattr)
 		return inode->i_op->getattr(path->mnt, path->dentry, stat);
 
-	generic_fillattr(inode, stat);
+	generic_fillattr(path->mnt, inode, stat);
 	return 0;
 }
 

@@ -585,6 +585,8 @@ struct inode {
 	kuid_t			i_uid;
 	kgid_t			i_gid;
 	unsigned int		i_flags;
+	uid_t			shift_uid;
+	gid_t			shift_gid;
 
 #ifdef CONFIG_FS_POSIX_ACL
 	struct posix_acl	*i_acl;
@@ -2712,7 +2714,8 @@ extern int page_symlink(struct inode *inode, const char *symname, int len);
 extern const struct inode_operations page_symlink_inode_operations;
 extern void kfree_put_link(struct dentry *, struct nameidata *, void *);
 extern int generic_readlink(struct dentry *, char __user *, int);
-extern void generic_fillattr(struct inode *, struct kstat *);
+extern void generic_fillattr(struct vfsmount *, struct inode *,
+                             struct kstat *);
 int vfs_getattr_nosec(struct path *path, struct kstat *stat);
 extern int vfs_getattr(struct path *, struct kstat *);
 void __inode_add_bytes(struct inode *inode, loff_t bytes);
