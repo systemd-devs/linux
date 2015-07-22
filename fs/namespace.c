@@ -2042,7 +2042,7 @@ static const match_table_t tokens = {
         {Opt_err, NULL},
 };
 
-static int loopback_parse_options(char *options, int *pin_userns)
+static int loopback_parse_options(char *options, int *apply_shift)
 {
         substring_t args[MAX_OPT_ARGS];
         char *origin, *p;
@@ -2077,7 +2077,7 @@ static int loopback_parse_options(char *options, int *pin_userns)
                 }
         }
 
-        *pin_userns = idshift;
+        *apply_shift = idshift;
 
         kfree(origin);
         return ret;
@@ -2092,7 +2092,7 @@ static int do_loopback(struct path *path, const char *old_name,
 	struct path old_path;
 	struct mount *mnt = NULL, *old, *parent;
 	struct mountpoint *mp;
-        int pin_userns = 0;
+        int idshift = 0;
 	int err;
 	if (!old_name || !*old_name)
 		return -EINVAL;
@@ -2104,7 +2104,7 @@ static int do_loopback(struct path *path, const char *old_name,
 	if (mnt_ns_loop(old_path.dentry))
 		goto out; 
 
-        err = loopback_parse_options((char *)data, &pin_userns);
+        err = loopback_parse_options((char *)data, &idshift);
         if (err < 0)
                 goto out;
 
@@ -2141,7 +2141,7 @@ static int do_loopback(struct path *path, const char *old_name,
 
 	mnt->mnt.mnt_flags &= ~MNT_LOCKED;
 
-        if (pin_userns)
+        if (idshift)
                 mnt->mnt.user_ns = get_user_ns(current_user_ns());
 
 	err = graft_tree(mnt, parent, mp);
