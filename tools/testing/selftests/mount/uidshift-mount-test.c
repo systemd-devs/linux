@@ -191,14 +191,14 @@ static int outer_child(void)
 
         //ret = mount("/tmp", "/tmp", "tmpfs", MS_STRICTATIME,
         //            "mode=1777");
-        ret = mount("/tmp", "/tmp", "bind", MS_BIND, NULL);
+        ret = mount("/tmp", "/tmp", "bind", MS_BIND, "vfs_uidshift=1");
         if (ret < 0) {
                 ret = -errno;
                 printf("mount() tmpfs failed: %d (%m)\n", ret);
                 return ret;
         }
 
-        ret = mount("/proc", "/proc", "bind", MS_BIND, NULL);
+        ret = mount("/proc", "/proc", "bind", MS_BIND, "vfs_uidshift=1");
         if (ret < 0) {
                 ret = -errno;
                 printf("mount() procfs failed: %d (%m)\n", ret);
