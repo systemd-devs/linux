@@ -783,16 +783,47 @@ static inline void i_size_write(struct inode *inode, loff_t i_size)
 #ifdef CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID
 
 /* VFS kuid_t into on-disk inode uid_t */
-static inline uid_t raw_i_uid_read(const struct inode *inode)
+static inline uid_t i_uid_read(const struct inode *inode)
 {
 	return from_kuid(&init_user_ns, VUID_TO_KUID(inode->i_uid));
 }
 
 /* VFS kgid_t into on-disk inode gid_t */
-static inline gid_t raw_i_gid_read(const struct inode *inode)
+static inline gid_t i_gid_read(const struct inode *inode)
 {
 	return from_kgid(&init_user_ns, VGID_TO_KGID(inode->i_gid));
 }
+
+static inline void i_uid_write(struct inode *inode, uid_t uid)
+{
+	kuid_t kuid;
+	kuid = make_kuid(&init_user_ns, uid);
+	inode->i_uid = KUID_TO_VUID(kuid);
+}
+
+static inline void i_gid_write(struct inode *inode, gid_t gid)
+{
+	kgid_t kgid;
+	kgid = make_kgid(&init_user_ns, gid);
+	inode->i_gid = KGID_TO_VGID(kgid);
+}
+
+/* On-disk inode uid_t into VFS kuid_t format */
+extern kuid_t vfs_i_uid_read(const struct inode *inode,
+			     const struct vfsmount *mnt);
+
+/* On-disk inode gid_t into VFS kgid_t format */
+extern kgid_t vfs_i_gid_read(const struct inode *inode,
+			     const struct vfsmount *mnt);
+
+/* Update inode kuid_t from on-disk uid_t */
+extern void vfs_i_uid_write(struct inode *inode,
+			    const struct vfsmount *mnt, uid_t uid);
+
+/* Update inode kgid_t from on-disk gid_t */
+extern void vfs_i_gid_write(struct inode *inode,
+			    const struct vfsmount *mnt, gid_t gid);
+
 #else
 static inline uid_t i_uid_read(const struct inode *inode)
 {
@@ -812,6 +843,34 @@ static inline void i_uid_write(struct inode *inode, uid_t uid)
 static inline void i_gid_write(struct inode *inode, gid_t gid)
 {
 	inode->i_gid = make_kgid(&init_user_ns, gid);
+}
+
+/* On-disk inode uid_t into VFS kuid_t format */
+static inline kuid_t vfs_i_uid_read(const struct inode *inode,
+				    const struct vfsmount *mnt)
+{
+	return inode->i_uid;
+}
+
+/* On-disk inode gid_t into VFS kgid_t format */
+static inline kgid_t vfs_i_gid_read(const struct inode *inode,
+				    const struct vfsmount *mnt)
+{
+	return inode->i_gid;
+}
+
+static inline void vfs_i_uid_write(struct inode *inode,
+				   const struct vfsmount *mnt,
+				   uid_t uid)
+{
+	i_uid_write(inode, uid);
+}
+
+static inline void vfs_i_gid_write(struct inode *inode,
+				   const struct vfsmount *mnt,
+				   gid_t gid)
+{
+	i_gid_write(inode, gid);
 }
 #endif
 

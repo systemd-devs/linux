@@ -505,6 +505,64 @@ void clear_inode(struct inode *inode)
 }
 EXPORT_SYMBOL(clear_inode);
 
+#ifdef CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID
+
+/*
+ * Helper functions so that filesystems do not deal with the VFS
+ * representation of kuid_t and kgid_t directly.
+ */
+
+/* On-disk inode uid_t into VFS kuid_t format */
+kuid_t vfs_i_uid_read(const struct inode *inode,
+		      const struct vfsmount *mnt)
+{
+	if (mnt && mnt->user_ns)
+		return make_kuid(mnt->user_ns, inode->i_uid.val);
+
+	return make_kuid(&init_user_ns, inode->i_uid.val);
+}
+
+/* On-disk inode gid_t into VFS kgid_t format */
+kgid_t vfs_i_gid_read(const struct inode *inode,
+		      const struct vfsmount *mnt)
+{
+	if (mnt && mnt->user_ns)
+		return make_kgid(mnt->user_ns, inode->i_gid.val);
+
+	return make_kgid(&init_user_ns, inode->i_gid.val);
+}
+
+/* Update inode kuid_t from on-disk uid_t */
+void vfs_i_uid_write(struct inode *inode,
+                     const struct vfsmount *mnt, uid_t uid)
+{
+	kuid_t kuid;
+	struct user_namespace *user_ns = &init_user_ns;
+
+	if (mnt && mnt->user_ns)
+		user_ns = mnt->user_ns;
+
+	kuid = make_kuid(user_ns, uid);
+	inode->i_uid = KUID_TO_VUID(kuid);
+}
+
+/* Update inode kgid_t from on-disk gid_t */
+void vfs_i_gid_write(struct inode *inode,
+                     const struct vfsmount *mnt, gid_t gid)
+{
+	kgid_t kgid;
+	struct user_namespace *user_ns = &init_user_ns;
+
+	if (mnt && mnt->user_ns)
+		user_ns = mnt->user_ns;
+
+	kgid = make_kgid(user_ns, gid);
+	inode->i_gid = KGID_TO_VGID(kgid);
+}
+
+#endif /* CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID */
+
+
 /*
  * Free the inode passed in, removing it from the lists it is still connected
  * to. We remove any pages still attached to the inode and wait for any IO that
