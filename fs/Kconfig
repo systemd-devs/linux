@@ -56,6 +56,19 @@ endif # BLOCK
 config FS_POSIX_ACL
 	def_bool n
 
+config VFS_BINDMOUNT_SHIFT_UIDGID
+        bool "UID and GID shifts on bind mounts (EXPERIMENTAL)" if EXPERT
+        depends on USER_NS
+        default n
+        help
+          Allow mounting the same mountpoint multiple times but using
+          different UID and GID mappings to each bind mount. For example,
+          this allows mounting /dir in a user-namespaced container with
+          the same UID and GID mappings applied as the user-namespace
+          itself.
+
+          Say Y here if you want to experiment with the feature.
+
 config EXPORTFS
 	tristate
 

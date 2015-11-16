@@ -20,6 +20,7 @@ struct super_block;
 struct vfsmount;
 struct dentry;
 struct mnt_namespace;
+struct user_namespace;
 
 #define MNT_NOSUID	0x01
 #define MNT_NODEV	0x02
@@ -66,11 +67,13 @@ struct mnt_namespace;
 struct vfsmount {
 	struct dentry *mnt_root;	/* root of the mounted tree */
 	struct super_block *mnt_sb;	/* pointer to superblock */
+	struct user_namespace *user_ns; /* pinned user_ns for shifted bind mounts */
 	int mnt_flags;
 };
 
 struct file; /* forward dec */
 struct path;
+struct inode;
 
 extern int mnt_want_write(struct vfsmount *mnt);
 extern int mnt_want_write_file(struct file *file);
@@ -94,5 +97,64 @@ extern void mnt_set_expiry(struct vfsmount *mnt, struct list_head *expiry_list);
 extern void mark_mounts_for_expiry(struct list_head *mounts);
 
 extern dev_t name_to_dev_t(const char *name);
+
+
+#ifdef CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID
+
+/*
+ * Helper functions so that filesystems do not deal with the VFS
+ * representation of kuid_t and kgid_t directly.
+ */
+
+/* On-disk inode uid_t into VFS kuid_t format */
+static inline kuid_t vfs_i_uid_read(const struct inode *inode,
+				    const struct vfsmount *mnt)
+{
+	if (mnt && mnt->user_ns)
+		return make_kuid(mnt->user_ns, inode->i_uid.val);
+
+	return make_kuid(&init_user_ns, inode->i_uid.val);
+}
+
+/* On-disk inode gid_t into VFS kgid_t format */
+static inline kgid_t vfs_i_gid_read(const struct inode *inode,
+				    const struct vfsmount *mnt)
+{
+	if (mnt && mnt->user_ns)
+		return make_kgid(mnt->user_ns, inode->i_gid.val);
+
+        return make_kgid(&init_user_ns, inode->i_gid.val);
+}
+
+/* Update inode kuid_t from on-disk uid_t */
+static inline void vfs_i_uid_write(struct inode *inode,
+                                   const struct vfsmount *mnt,
+                                   uid_t uid)
+{
+	kuid_t kuid;
+	struct user_namespace *user_ns = &init_user_ns;
+
+	if (mnt && mnt->user_ns)
+		user_ns = mnt->user_ns;
+
+	kuid = make_kuid(user_ns, uid);
+	inode->i_uid = KUID_TO_VUID(kuid);
+}
+
+/* Update inode kgid_t from on-disk gid_t */
+static inline void vfs_i_gid_write(struct inode *inode,
+                                   const struct vfsmount *mnt,
+                                   gid_t gid)
+{
+	kgid_t kgid;
+	struct user_namespace *user_ns = &init_user_ns;
+
+	if (mnt && mnt->user_ns)
+		user_ns = mnt->user_ns;
+
+	kgid = make_kgid(user_ns, gid);
+	inode->i_gid = KGID_TO_VGID(kgid);
+}
+#endif /* CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID */
 
 #endif /* _LINUX_MOUNT_H */

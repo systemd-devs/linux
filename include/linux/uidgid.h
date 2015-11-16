@@ -26,6 +26,26 @@ typedef struct {
 	gid_t val;
 } kgid_t;
 
+
+#ifdef CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID
+
+typedef struct {
+	uid_t val;
+} vuid_t;
+
+typedef struct {
+	gid_t val;
+} vgid_t;
+
+#define VUID_TO_KUID(vuid) (*(kuid_t *)(&(vuid)))
+#define VGID_TO_KGID(vgid) (*(kgid_t *)(&(vgid)))
+
+#define KUID_TO_VUID(kuid) (*(vuid_t *)(&(kuid)))
+#define KGID_TO_VGID(kgid) (*(vgid_t *)(&(kgid)))
+
+#endif
+
+
 #define KUIDT_INIT(value) (kuid_t){ value }
 #define KGIDT_INIT(value) (kgid_t){ value }
 

@@ -584,8 +584,13 @@ struct posix_acl;
 struct inode {
 	umode_t			i_mode;
 	unsigned short		i_opflags;
-	kuid_t			i_uid;
-	kgid_t			i_gid;
+#ifdef CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID
+	vuid_t			i_uid;
+	vgid_t			i_gid;
+#else
+	kuid_t                  i_uid;
+	kgid_t                  i_gid;
+#endif
 	unsigned int		i_flags;
 
 #ifdef CONFIG_FS_POSIX_ACL
@@ -768,11 +773,27 @@ static inline void i_size_write(struct inode *inode, loff_t i_size)
 #endif
 }
 
+
 /* Helper functions so that in most cases filesystems will
  * not need to deal directly with kuid_t and kgid_t and can
  * instead deal with the raw numeric values that are stored
  * in the filesystem.
  */
+
+#ifdef CONFIG_VFS_BINDMOUNT_SHIFT_UIDGID
+
+/* VFS kuid_t into on-disk inode uid_t */
+static inline uid_t raw_i_uid_read(const struct inode *inode)
+{
+	return from_kuid(&init_user_ns, VUID_TO_KUID(inode->i_uid));
+}
+
+/* VFS kgid_t into on-disk inode gid_t */
+static inline gid_t raw_i_gid_read(const struct inode *inode)
+{
+	return from_kgid(&init_user_ns, VGID_TO_KGID(inode->i_gid));
+}
+#else
 static inline uid_t i_uid_read(const struct inode *inode)
 {
 	return from_kuid(&init_user_ns, inode->i_uid);
@@ -792,6 +813,7 @@ static inline void i_gid_write(struct inode *inode, gid_t gid)
 {
 	inode->i_gid = make_kgid(&init_user_ns, gid);
 }
+#endif
 
 static inline unsigned iminor(const struct inode *inode)
 {
