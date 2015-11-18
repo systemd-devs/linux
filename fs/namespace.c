@@ -1024,6 +1024,14 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
 	unlock_mount_hash();
 
+	/*
+	 * Private mounts or unprivileged users are not allowed to
+	 * shift bind-mounts
+	 */
+	if ((flag & CL_BIND_SHIFT_UIDGID) &&
+	    (!(flag & CL_PRIVATE) && !(flag & CL_UNPRIVILEGED)))
+		mnt->mnt.user_ns = get_user_ns(current_user_ns());
+
 	if ((flag & CL_SLAVE) ||
 	    ((flag & CL_SHARED_TO_SLAVE) && IS_MNT_SHARED(old))) {
 		list_add(&mnt->mnt_slave, &old->mnt_slave_list);
@@ -1070,6 +1078,7 @@ static void cleanup_mnt(struct mount *mnt)
 	if (unlikely(mnt->mnt_pins.first))
 		mnt_pin_kill(mnt);
 	fsnotify_vfsmount_delete(&mnt->mnt);
+	put_user_ns(mnt->mnt.user_ns);
 	dput(mnt->mnt.mnt_root);
 	deactivate_super(mnt->mnt.mnt_sb);
 	mnt_free_id(mnt);
@@ -2142,6 +2151,13 @@ static int do_loopback(struct path *path, const char *old_name,
 	if (err < 0)
 		goto out;
 
+	if (shift_flag) {
+		err = -EPERM;
+		if (!capable(CAP_SYS_ADMIN))
+		    goto out;
+		shift_flag = CL_BIND_SHIFT_UIDGID;
+	}
+
 	mp = lock_mount(path);
 	err = PTR_ERR(mp);
 	if (IS_ERR(mp))
@@ -2164,9 +2180,10 @@ static int do_loopback(struct path *path, const char *old_name,
 		goto out2;
 
 	if (recurse)
-		mnt = copy_tree(old, old_path.dentry, CL_COPY_MNT_NS_FILE);
+		mnt = copy_tree(old, old_path.dentry,
+				CL_COPY_MNT_NS_FILE | shift_flag);
 	else
-		mnt = clone_mnt(old, old_path.dentry, 0);
+		mnt = clone_mnt(old, old_path.dentry, shift_flag);
 
 	if (IS_ERR(mnt)) {
 		err = PTR_ERR(mnt);
