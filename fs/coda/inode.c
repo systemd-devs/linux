@@ -259,7 +259,7 @@ int coda_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat
 {
 	int err = coda_revalidate_inode(d_inode(dentry));
 	if (!err)
-		generic_fillattr(d_inode(dentry), stat);
+		generic_fillattr(mnt, d_inode(dentry), stat);
 	return err;
 }
 

@@ -383,7 +383,7 @@ int afs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 
 	_enter("{ ino=%lu v=%u }", inode->i_ino, inode->i_generation);
 
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 	return 0;
 }
 

@@ -626,7 +626,7 @@ static int minix_write_inode(struct inode *inode, struct writeback_control *wbc)
 int minix_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 {
 	struct super_block *sb = dentry->d_sb;
-	generic_fillattr(d_inode(dentry), stat);
+	generic_fillattr(mnt, d_inode(dentry), stat);
 	if (INODE_VERSION(d_inode(dentry)) == MINIX_V1)
 		stat->blocks = (BLOCK_SIZE / 512) * V1_minix_blocks(stat->size, sb);
 	else

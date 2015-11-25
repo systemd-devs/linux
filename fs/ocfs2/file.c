@@ -1301,7 +1301,7 @@ int ocfs2_getattr(struct vfsmount *mnt,
 		goto bail;
 	}
 
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 
 	/* We set the blksize from the cluster size for performance */
 	stat->blksize = osb->s_clustersize;

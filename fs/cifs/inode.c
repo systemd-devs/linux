@@ -1977,7 +1977,7 @@ int cifs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	if (rc)
 		return rc;
 
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 	stat->blksize = CIFS_MAX_MSGSIZE;
 	stat->ino = CIFS_I(inode)->uniqueid;
 
