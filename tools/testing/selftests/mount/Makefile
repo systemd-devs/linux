@@ -1,21 +1,26 @@
 # Makefile for mount selftests.
 CFLAGS = -Wall \
          -O2
-all: unprivileged-remount-test
+all: unprivileged-remount-test uidshift-mount-test
 
 unprivileged-remount-test: unprivileged-remount-test.c
 	$(CC) $(CFLAGS) unprivileged-remount-test.c -o unprivileged-remount-test
 
+uidshift-mount-test: uidshift-mount-test.c
+	$(CC) $(CFLAGS) uidshift-mount-test.c -o uidshift-mount-test
+
 include ../lib.mk
 
-TEST_PROGS := unprivileged-remount-test
+TEST_PROGS := unprivileged-remount-test uidshift-mount-test
 override RUN_TESTS := if [ -f /proc/self/uid_map ] ; \
 		      then	\
 				./unprivileged-remount-test ; \
+				./uidshift-mount-test ; \
 		      else	\
-				echo "WARN: No /proc/self/uid_map exist, test skipped." ; \
+				echo "unprivileged-remount-test: No /proc/self/uid_map exist, test skipped." ; \
+				echo "uidshift-mount-test: No /proc/self/uid_map exist, test skipped." ; \
 		      fi
 override EMIT_TESTS := echo "$(RUN_TESTS)"
 
 clean:
-	rm -f unprivileged-remount-test
+	rm -f unprivileged-remount-test uidshift-mount-test
