@@ -43,6 +43,14 @@ typedef struct {
 #define KUID_TO_VUID(kuid) (*(vuid_t *)(&(kuid)))
 #define KGID_TO_VGID(kgid) (*(vgid_t *)(&(kgid)))
 
+#else
+
+#define VUID_TO_KUID(vuid) (vuid)
+#define VGID_TO_KGID(vgid) (vgid)
+
+#define KUID_TO_VUID(kuid) (kuid)
+#define KGID_TO_VGID(kgid) (kgid)
+
 #endif
 
 

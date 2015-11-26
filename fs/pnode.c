@@ -122,14 +122,21 @@ void change_mnt_propagation(struct mount *mnt, int type)
 		set_mnt_shared(mnt);
 		return;
 	}
+
 	do_make_slave(mnt);
-	if (type != MS_SLAVE) {
+
+	if (type == MS_BIND_SHIFT_UIDGID) {
+		if (!IS_MNT_UNBINDABLE(mnt))
+			mnt->mnt.mnt_flags |= MNT_BIND_SHIFTABLE;
+	} else if (type != MS_SLAVE) {
 		list_del_init(&mnt->mnt_slave);
 		mnt->mnt_master = NULL;
 		if (type == MS_UNBINDABLE)
 			mnt->mnt.mnt_flags |= MNT_UNBINDABLE;
 		else
 			mnt->mnt.mnt_flags &= ~MNT_UNBINDABLE;
+
+		mnt->mnt.mnt_flags &= ~MNT_BIND_SHIFTABLE;
 	}
 }
 

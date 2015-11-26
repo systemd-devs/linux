@@ -1696,6 +1696,9 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 	if (!(flag & CL_COPY_MNT_NS_FILE) && is_mnt_ns_file(dentry))
 		return ERR_PTR(-EINVAL);
 
+	if ((flag & CL_BIND_SHIFT_UIDGID) && !IS_MNT_BIND_SHIFTABLE(mnt))
+		return ERR_PTR(-EINVAL);
+
 	res = q = clone_mnt(mnt, dentry, flag);
 	if (IS_ERR(q))
 		return q;
@@ -1717,6 +1720,11 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 			}
 			if (!(flag & CL_COPY_MNT_NS_FILE) &&
 			    is_mnt_ns_file(s->mnt.mnt_root)) {
+				s = skip_mnt_tree(s);
+				continue;
+			}
+			if ((flag & CL_BIND_SHIFT_UIDGID) &&
+			    !IS_MNT_BIND_SHIFTABLE(s)) {
 				s = skip_mnt_tree(s);
 				continue;
 			}
@@ -2024,7 +2032,8 @@ static int flags_to_propagation_type(int flags)
 	int type = flags & ~(MS_REC | MS_SILENT);
 
 	/* Fail if any non-propagation flags are set */
-	if (type & ~(MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE))
+	if (type & ~(MS_SHARED | MS_PRIVATE | MS_SLAVE
+		     | MS_UNBINDABLE | MS_BIND_SHIFT_UIDGID))
 		return 0;
 	/* Only one propagation flag should be set */
 	if (!is_power_of_2(type))
@@ -2049,6 +2058,13 @@ static int do_change_type(struct path *path, int flag)
 	type = flags_to_propagation_type(flag);
 	if (!type)
 		return -EINVAL;
+
+	/*
+	 * Only real privileged users are allowed to set the
+	 * MS_BIND_SHIFT_UIDGID flag and propagate it.
+	 */
+	if (type == MS_BIND_SHIFT_UIDGID && !capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	namespace_lock();
 	if (type == MS_SHARED) {
@@ -2133,7 +2149,9 @@ static int do_loopback(struct path *path, const char *old_name,
                        int recurse, void *data)
 {
 	struct path old_path;
+	struct path root;
 	struct mount *mnt = NULL, *old, *parent;
+	struct mount *root_mnt = NULL;
 	struct mountpoint *mp;
 	int shift_flag = 0;
 	int err;
@@ -2153,18 +2171,21 @@ static int do_loopback(struct path *path, const char *old_name,
 
 	if (shift_flag) {
 		err = -EPERM;
-		if (!capable(CAP_SYS_ADMIN))
-		    goto out;
+		if (!may_mount())
+			goto out;
+
 		shift_flag = CL_BIND_SHIFT_UIDGID;
 	}
 
+	get_fs_root(current->fs, &root);
 	mp = lock_mount(path);
 	err = PTR_ERR(mp);
 	if (IS_ERR(mp))
-		goto out;
+		goto out1;
 
 	old = real_mount(old_path.mnt);
 	parent = real_mount(path->mnt);
+	root_mnt = real_mount(root.mnt);
 
 	err = -EINVAL;
 	if (IS_MNT_UNBINDABLE(old))
@@ -2177,6 +2198,12 @@ static int do_loopback(struct path *path, const char *old_name,
 		goto out2;
 
 	if (!recurse && has_locked_children(old, old_path.dentry))
+		goto out2;
+
+	if ((shift_flag & CL_BIND_SHIFT_UIDGID) &&
+	    (!check_mnt(root_mnt) ||
+	     !mnt_has_parent(root_mnt) ||
+	     !IS_MNT_BIND_SHIFTABLE(root_mnt)))
 		goto out2;
 
 	if (recurse)
@@ -2200,6 +2227,8 @@ static int do_loopback(struct path *path, const char *old_name,
 	}
 out2:
 	unlock_mount(mp);
+out1:
+	path_put(&root);
 out:
 	path_put(&old_path);
 	return err;
@@ -2792,7 +2821,8 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 				    data_page);
 	else if (flags & MS_BIND)
 		retval = do_loopback(&path, dev_name, flags & MS_REC, data_page);
-	else if (flags & (MS_SHARED | MS_PRIVATE | MS_SLAVE | MS_UNBINDABLE))
+	else if (flags & (MS_SHARED | MS_PRIVATE | MS_SLAVE
+			  | MS_UNBINDABLE | MS_BIND_SHIFT_UIDGID))
 		retval = do_change_type(&path, flags);
 	else if (flags & MS_MOVE)
 		retval = do_move_mount(&path, dev_name);
