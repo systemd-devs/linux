@@ -48,15 +48,15 @@ int inode_change_ok(const struct inode *inode, struct iattr *attr)
 
 	/* Make sure a caller can chown. */
 	if ((ia_valid & ATTR_UID) &&
-	    (!uid_eq(current_fsuid(), inode->i_uid) ||
-	     !uid_eq(attr->ia_uid, inode->i_uid)) &&
+	    (!uid_eq(current_fsuid(), VUID_TO_KUID(inode->i_uid)) ||
+	     !uid_eq(attr->ia_uid, VUID_TO_KUID(inode->i_uid))) &&
 	    !capable_wrt_inode_uidgid(inode, CAP_CHOWN))
 		return -EPERM;
 
 	/* Make sure caller can chgrp. */
 	if ((ia_valid & ATTR_GID) &&
-	    (!uid_eq(current_fsuid(), inode->i_uid) ||
-	    (!in_group_p(attr->ia_gid) && !gid_eq(attr->ia_gid, inode->i_gid))) &&
+	    (!uid_eq(current_fsuid(), VUID_TO_KUID(inode->i_uid)) ||
+	    (!in_group_p(attr->ia_gid) && !gid_eq(attr->ia_gid, VGID_TO_KGID(inode->i_gid)))) &&
 	    !capable_wrt_inode_uidgid(inode, CAP_CHOWN))
 		return -EPERM;
 
@@ -66,7 +66,7 @@ int inode_change_ok(const struct inode *inode, struct iattr *attr)
 			return -EPERM;
 		/* Also check the setgid bit! */
 		if (!in_group_p((ia_valid & ATTR_GID) ? attr->ia_gid :
-				inode->i_gid) &&
+				VGID_TO_KGID(inode->i_gid)) &&
 		    !capable_wrt_inode_uidgid(inode, CAP_FSETID))
 			attr->ia_mode &= ~S_ISGID;
 	}
@@ -144,9 +144,9 @@ void setattr_copy(struct inode *inode, const struct iattr *attr)
 	unsigned int ia_valid = attr->ia_valid;
 
 	if (ia_valid & ATTR_UID)
-		inode->i_uid = attr->ia_uid;
+		inode->i_uid = KUID_TO_VUID(attr->ia_uid);
 	if (ia_valid & ATTR_GID)
-		inode->i_gid = attr->ia_gid;
+		inode->i_gid = KGID_TO_VGID(attr->ia_gid);
 	if (ia_valid & ATTR_ATIME)
 		inode->i_atime = timespec_trunc(attr->ia_atime,
 						inode->i_sb->s_time_gran);
@@ -159,7 +159,7 @@ void setattr_copy(struct inode *inode, const struct iattr *attr)
 	if (ia_valid & ATTR_MODE) {
 		umode_t mode = attr->ia_mode;
 
-		if (!in_group_p(inode->i_gid) &&
+		if (!in_group_p(VGID_TO_KGID(inode->i_gid)) &&
 		    !capable_wrt_inode_uidgid(inode, CAP_FSETID))
 			mode &= ~S_ISGID;
 		inode->i_mode = mode;

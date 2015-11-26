@@ -163,6 +163,8 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
 	}
 	if (IS_MNT_UNBINDABLE(r))
 		seq_puts(m, " unbindable");
+	else if (r->mnt.user_ns)
+		seq_puts(m, " bind-shifted");
 
 	/* Filesystem specific data */
 	seq_puts(m, " - ");

@@ -1066,8 +1066,8 @@ struct inode *alloc_anon_inode(struct super_block *s)
 	 */
 	inode->i_state = I_DIRTY;
 	inode->i_mode = S_IRUSR | S_IWUSR;
-	inode->i_uid = current_fsuid();
-	inode->i_gid = current_fsgid();
+	inode->i_uid = KUID_TO_VUID(current_fsuid());
+	inode->i_gid = KGID_TO_VGID(current_fsgid());
 	inode->i_flags |= S_PRIVATE;
 	inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 	return inode;
@@ -1116,7 +1116,7 @@ static int empty_dir_getattr(struct vfsmount *mnt, struct dentry *dentry,
 				 struct kstat *stat)
 {
 	struct inode *inode = d_inode(dentry);
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 	return 0;
 }
 
@@ -1182,8 +1182,8 @@ void make_empty_dir_inode(struct inode *inode)
 {
 	set_nlink(inode, 2);
 	inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO;
-	inode->i_uid = GLOBAL_ROOT_UID;
-	inode->i_gid = GLOBAL_ROOT_GID;
+	inode->i_uid = KUID_TO_VUID(GLOBAL_ROOT_UID);
+	inode->i_gid = KGID_TO_VGID(GLOBAL_ROOT_GID);
 	inode->i_rdev = 0;
 	inode->i_size = 0;
 	inode->i_blkbits = PAGE_SHIFT;

@@ -57,8 +57,8 @@ int proc_setup_thread_self(struct super_block *s)
 			inode->i_ino = thread_self_inum;
 			inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 			inode->i_mode = S_IFLNK | S_IRWXUGO;
-			inode->i_uid = GLOBAL_ROOT_UID;
-			inode->i_gid = GLOBAL_ROOT_GID;
+			inode->i_uid = KUID_TO_VUID(GLOBAL_ROOT_UID);
+			inode->i_gid = KGID_TO_VGID(GLOBAL_ROOT_GID);
 			inode->i_op = &proc_thread_self_inode_operations;
 			d_add(thread_self, inode);
 		} else {

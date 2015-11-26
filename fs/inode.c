@@ -1991,13 +1991,13 @@ EXPORT_SYMBOL(init_special_inode);
 void inode_init_owner(struct inode *inode, const struct inode *dir,
 			umode_t mode)
 {
-	inode->i_uid = current_fsuid();
+	inode->i_uid = KUID_TO_VUID(current_fsuid());
 	if (dir && dir->i_mode & S_ISGID) {
 		inode->i_gid = dir->i_gid;
 		if (S_ISDIR(mode))
 			mode |= S_ISGID;
 	} else
-		inode->i_gid = current_fsgid();
+		inode->i_gid = KGID_TO_VGID(current_fsgid());
 	inode->i_mode = mode;
 }
 EXPORT_SYMBOL(inode_init_owner);
@@ -2013,11 +2013,11 @@ bool inode_owner_or_capable(const struct inode *inode)
 {
 	struct user_namespace *ns;
 
-	if (uid_eq(current_fsuid(), inode->i_uid))
+	if (uid_eq(current_fsuid(), VUID_TO_KUID(inode->i_uid)))
 		return true;
 
 	ns = current_user_ns();
-	if (ns_capable(ns, CAP_FOWNER) && kuid_has_mapping(ns, inode->i_uid))
+	if (ns_capable(ns, CAP_FOWNER) && kuid_has_mapping(ns, VUID_TO_KUID(inode->i_uid)))
 		return true;
 	return false;
 }

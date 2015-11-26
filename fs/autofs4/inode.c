@@ -77,12 +77,12 @@ static int autofs4_show_options(struct seq_file *m, struct dentry *root)
 		return 0;
 
 	seq_printf(m, ",fd=%d", sbi->pipefd);
-	if (!uid_eq(root_inode->i_uid, GLOBAL_ROOT_UID))
+	if (!uid_eq(VUID_TO_KUID(root_inode->i_uid), GLOBAL_ROOT_UID))
 		seq_printf(m, ",uid=%u",
-			from_kuid_munged(&init_user_ns, root_inode->i_uid));
-	if (!gid_eq(root_inode->i_gid, GLOBAL_ROOT_GID))
+			from_kuid_munged(&init_user_ns, VUID_TO_KUID(root_inode->i_uid)));
+	if (!gid_eq(VGID_TO_KGID(root_inode->i_gid), GLOBAL_ROOT_GID))
 		seq_printf(m, ",gid=%u",
-			from_kgid_munged(&init_user_ns, root_inode->i_gid));
+			from_kgid_munged(&init_user_ns, VGID_TO_KGID(root_inode->i_gid)));
 	seq_printf(m, ",pgrp=%d", pid_vnr(sbi->oz_pgrp));
 	seq_printf(m, ",timeout=%lu", sbi->exp_timeout/HZ);
 	seq_printf(m, ",minproto=%d", sbi->min_proto);
@@ -263,7 +263,7 @@ int autofs4_fill_super(struct super_block *s, void *data, int silent)
 	root->d_fsdata = ino;
 
 	/* Can this call block? */
-	if (parse_options(data, &pipefd, &root_inode->i_uid, &root_inode->i_gid,
+	if (parse_options(data, &pipefd, &VUID_TO_KUID(root_inode->i_uid), &VGID_TO_KGID(root_inode->i_gid),
 			  &pgrp, &pgrp_set, &sbi->type, &sbi->min_proto,
 			  &sbi->max_proto)) {
 		printk("autofs: called with bogus options\n");

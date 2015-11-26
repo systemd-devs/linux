@@ -241,8 +241,8 @@ static inline void set_default_inode_attr(struct inode *inode, umode_t mode)
 
 static inline void set_inode_attr(struct inode *inode, struct iattr *iattr)
 {
-	inode->i_uid = iattr->ia_uid;
-	inode->i_gid = iattr->ia_gid;
+	inode->i_uid = KUID_TO_VUID(iattr->ia_uid);
+	inode->i_gid = KGID_TO_VGID(iattr->ia_gid);
 	inode->i_atime = iattr->ia_atime;
 	inode->i_mtime = iattr->ia_mtime;
 	inode->i_ctime = iattr->ia_ctime;

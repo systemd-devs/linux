@@ -555,7 +555,7 @@ static int shmem_getattr(struct vfsmount *mnt, struct dentry *dentry,
 		shmem_recalc_inode(inode);
 		spin_unlock(&info->lock);
 	}
-	generic_fillattr(inode, stat);
+	generic_fillattr(mnt, inode, stat);
 	return 0;
 }
 
@@ -3063,8 +3063,8 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 	inode = shmem_get_inode(sb, NULL, S_IFDIR | sbinfo->mode, 0, VM_NORESERVE);
 	if (!inode)
 		goto failed;
-	inode->i_uid = sbinfo->uid;
-	inode->i_gid = sbinfo->gid;
+	inode->i_uid = KUID_TO_VUID(sbinfo->uid);
+	inode->i_gid = KGID_TO_VGID(sbinfo->gid);
 	sb->s_root = d_make_root(inode);
 	if (!sb->s_root)
 		goto failed;

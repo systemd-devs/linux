@@ -284,8 +284,8 @@ static int mknod_ptmx(struct super_block *sb)
 
 	mode = S_IFCHR|opts->ptmxmode;
 	init_special_inode(inode, mode, MKDEV(TTYAUX_MAJOR, 2));
-	inode->i_uid = root_uid;
-	inode->i_gid = root_gid;
+	inode->i_uid = KUID_TO_VUID(root_uid);
+	inode->i_gid = KGID_TO_VGID(root_gid);
 
 	d_add(dentry, inode);
 
@@ -607,8 +607,8 @@ struct inode *devpts_pty_new(struct inode *ptmx_inode, dev_t device, int index,
 		return ERR_PTR(-ENOMEM);
 
 	inode->i_ino = index + 3;
-	inode->i_uid = opts->setuid ? opts->uid : current_fsuid();
-	inode->i_gid = opts->setgid ? opts->gid : current_fsgid();
+	inode->i_uid = opts->setuid ? KUID_TO_VUID(opts->uid) : KUID_TO_VUID(current_fsuid());
+	inode->i_gid = opts->setgid ? KGID_TO_VGID(opts->gid) : KGID_TO_VGID(current_fsgid());
 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME;
 	init_special_inode(inode, S_IFCHR|opts->mode, device);
 	inode->i_private = priv;

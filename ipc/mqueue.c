@@ -223,8 +223,8 @@ static struct inode *mqueue_get_inode(struct super_block *sb,
 
 	inode->i_ino = get_next_ino();
 	inode->i_mode = mode;
-	inode->i_uid = current_fsuid();
-	inode->i_gid = current_fsgid();
+	inode->i_uid = KUID_TO_VUID(current_fsuid());
+	inode->i_gid = KGID_TO_VGID(current_fsgid());
 	inode->i_mtime = inode->i_ctime = inode->i_atime = CURRENT_TIME;
 
 	if (S_ISREG(mode)) {

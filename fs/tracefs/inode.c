@@ -219,8 +219,8 @@ static int tracefs_apply_options(struct super_block *sb)
 	inode->i_mode &= ~S_IALLUGO;
 	inode->i_mode |= opts->mode;
 
-	inode->i_uid = opts->uid;
-	inode->i_gid = opts->gid;
+	inode->i_uid = KUID_TO_VUID(opts->uid);
+	inode->i_gid = KGID_TO_VGID(opts->gid);
 
 	return 0;
 }

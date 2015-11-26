@@ -443,7 +443,8 @@ bool capable_wrt_inode_uidgid(const struct inode *inode, int cap)
 {
 	struct user_namespace *ns = current_user_ns();
 
-	return ns_capable(ns, cap) && kuid_has_mapping(ns, inode->i_uid) &&
-		kgid_has_mapping(ns, inode->i_gid);
+	return ns_capable(ns, cap) &&
+		kuid_has_mapping(ns, VUID_TO_KUID(inode->i_uid)) &&
+		kgid_has_mapping(ns, VGID_TO_KGID(inode->i_gid));
 }
 EXPORT_SYMBOL(capable_wrt_inode_uidgid);

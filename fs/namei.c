@@ -290,7 +290,7 @@ static int acl_permission_check(struct inode *inode, int mask)
 {
 	unsigned int mode = inode->i_mode;
 
-	if (likely(uid_eq(current_fsuid(), inode->i_uid)))
+	if (likely(uid_eq(current_fsuid(), VUID_TO_KUID(inode->i_uid))))
 		mode >>= 6;
 	else {
 		if (IS_POSIXACL(inode) && (mode & S_IRWXG)) {
@@ -299,7 +299,7 @@ static int acl_permission_check(struct inode *inode, int mask)
 				return error;
 		}
 
-		if (in_group_p(inode->i_gid))
+		if (in_group_p(VGID_TO_KGID(inode->i_gid)))
 			mode >>= 3;
 	}
 
@@ -893,7 +893,7 @@ static inline int may_follow_link(struct nameidata *nd)
 
 	/* Allowed if owner and follower match. */
 	inode = nd->stack[0].inode;
-	if (uid_eq(current_cred()->fsuid, inode->i_uid))
+	if (uid_eq(current_cred()->fsuid, VUID_TO_KUID(inode->i_uid)))
 		return 0;
 
 	/* Allowed if parent directory not sticky and world-writable. */
@@ -902,7 +902,7 @@ static inline int may_follow_link(struct nameidata *nd)
 		return 0;
 
 	/* Allowed if parent directory and link owner match. */
-	if (uid_eq(parent->i_uid, inode->i_uid))
+	if (uid_eq(VUID_TO_KUID(parent->i_uid), VUID_TO_KUID(inode->i_uid)))
 		return 0;
 
 	if (nd->flags & LOOKUP_RCU)
@@ -2519,9 +2519,9 @@ int __check_sticky(struct inode *dir, struct inode *inode)
 {
 	kuid_t fsuid = current_fsuid();
 
-	if (uid_eq(inode->i_uid, fsuid))
+	if (uid_eq(VUID_TO_KUID(inode->i_uid), fsuid))
 		return 0;
-	if (uid_eq(dir->i_uid, fsuid))
+	if (uid_eq(VUID_TO_KUID(dir->i_uid), fsuid))
 		return 0;
 	return !capable_wrt_inode_uidgid(inode, CAP_FOWNER);
 }

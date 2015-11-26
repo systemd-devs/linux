@@ -4717,8 +4717,8 @@ int ext4_setattr(struct dentry *dentry, struct iattr *attr)
 		if (error)
 			return error;
 	}
-	if ((ia_valid & ATTR_UID && !uid_eq(attr->ia_uid, inode->i_uid)) ||
-	    (ia_valid & ATTR_GID && !gid_eq(attr->ia_gid, inode->i_gid))) {
+	if ((ia_valid & ATTR_UID && !uid_eq(attr->ia_uid, VUID_TO_KUID(inode->i_uid))) ||
+	    (ia_valid & ATTR_GID && !gid_eq(attr->ia_gid, VGID_TO_KGID(inode->i_gid)))) {
 		handle_t *handle;
 
 		/* (user+group)*(old+new) structure, inode write (sb,
@@ -4738,9 +4738,9 @@ int ext4_setattr(struct dentry *dentry, struct iattr *attr)
 		/* Update corresponding info in inode so that everything is in
 		 * one transaction */
 		if (attr->ia_valid & ATTR_UID)
-			inode->i_uid = attr->ia_uid;
+			inode->i_uid = KUID_TO_VUID(attr->ia_uid);
 		if (attr->ia_valid & ATTR_GID)
-			inode->i_gid = attr->ia_gid;
+			inode->i_gid = KGID_TO_VGID(attr->ia_gid);
 		error = ext4_mark_inode_dirty(handle, inode);
 		ext4_journal_stop(handle);
 	}

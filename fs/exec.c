@@ -1311,8 +1311,8 @@ static void bprm_fill_uid(struct linux_binprm *bprm)
 
 	/* reload atomically mode/uid/gid now that lock held */
 	mode = inode->i_mode;
-	uid = inode->i_uid;
-	gid = inode->i_gid;
+	uid = VUID_TO_KUID(inode->i_uid);
+	gid = VGID_TO_KGID(inode->i_gid);
 	mutex_unlock(&inode->i_mutex);
 
 	/* We ignore suid/sgid if there are no mappings for them in the ns */

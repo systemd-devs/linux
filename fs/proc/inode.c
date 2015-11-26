@@ -428,8 +428,8 @@ struct inode *proc_get_inode(struct super_block *sb, struct proc_dir_entry *de)
 		}
 		if (de->mode) {
 			inode->i_mode = de->mode;
-			inode->i_uid = de->uid;
-			inode->i_gid = de->gid;
+			inode->i_uid = KUID_TO_VUID(de->uid);
+			inode->i_gid = KGID_TO_VGID(de->gid);
 		}
 		if (de->size)
 			inode->i_size = de->size;

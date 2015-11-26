@@ -111,12 +111,12 @@ static int tid_fd_revalidate(struct dentry *dentry, unsigned int flags)
 				if (task_dumpable(task)) {
 					rcu_read_lock();
 					cred = __task_cred(task);
-					inode->i_uid = cred->euid;
-					inode->i_gid = cred->egid;
+					inode->i_uid = KUID_TO_VUID(cred->euid);
+					inode->i_gid = KGID_TO_VGID(cred->egid);
 					rcu_read_unlock();
 				} else {
-					inode->i_uid = GLOBAL_ROOT_UID;
-					inode->i_gid = GLOBAL_ROOT_GID;
+					inode->i_uid = KUID_TO_VUID(GLOBAL_ROOT_UID);
+					inode->i_gid = KGID_TO_VGID(GLOBAL_ROOT_GID);
 				}
 
 				if (S_ISLNK(inode->i_mode)) {

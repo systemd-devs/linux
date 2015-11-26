@@ -1433,10 +1433,10 @@ static int __dquot_initialize(struct inode *inode, int type)
 
 		switch (cnt) {
 		case USRQUOTA:
-			qid = make_kqid_uid(inode->i_uid);
+			qid = make_kqid_uid(VUID_TO_KUID(inode->i_uid));
 			break;
 		case GRPQUOTA:
-			qid = make_kqid_gid(inode->i_gid);
+			qid = make_kqid_gid(VGID_TO_KGID(inode->i_gid));
 			break;
 		case PRJQUOTA:
 			rc = inode->i_sb->dq_op->get_projid(inode, &projid);
@@ -1987,7 +1987,7 @@ int dquot_transfer(struct inode *inode, struct iattr *iattr)
 	if (!dquot_active(inode))
 		return 0;
 
-	if (iattr->ia_valid & ATTR_UID && !uid_eq(iattr->ia_uid, inode->i_uid)){
+	if (iattr->ia_valid & ATTR_UID && !uid_eq(iattr->ia_uid, VUID_TO_KUID(inode->i_uid))){
 		dquot = dqget(sb, make_kqid_uid(iattr->ia_uid));
 		if (IS_ERR(dquot)) {
 			if (PTR_ERR(dquot) != -ESRCH) {
@@ -1998,7 +1998,7 @@ int dquot_transfer(struct inode *inode, struct iattr *iattr)
 		}
 		transfer_to[USRQUOTA] = dquot;
 	}
-	if (iattr->ia_valid & ATTR_GID && !gid_eq(iattr->ia_gid, inode->i_gid)){
+	if (iattr->ia_valid & ATTR_GID && !gid_eq(iattr->ia_gid, VGID_TO_KGID(inode->i_gid))){
 		dquot = dqget(sb, make_kqid_gid(iattr->ia_gid));
 		if (IS_ERR(dquot)) {
 			if (PTR_ERR(dquot) != -ESRCH) {
