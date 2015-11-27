@@ -87,36 +87,36 @@ static const mount_point mnt_table[] = {
 	},
         {
 		"/proc/sys", "/proc/sys", NULL, NULL,
-		MS_BIND, true, false, false,
+		MS_BIND, false, true, false,
 	},	/* Bind mount first */
         {
-		"/proc/sys", "/proc/sys", NULL, "vfs_uidshift=1",
+		"/proc/sys", "/proc/sys", NULL, NULL,
 		MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
 		false, true, false,
 	},	/* Then, make it r/o */
         {
 		"tmpfs", "/sys", "tmpfs", "mode=755",
-		MS_NOSUID|MS_NOEXEC|MS_NODEV, true, true, false,
+		MS_NOSUID|MS_NOEXEC|MS_NODEV, true, false, false,
 	},
 	{
 		"sysfs", "/sys", "sysfs", NULL,
-		MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, false, false,
+		MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true, false, false,
 	},
         {
 		"tmpfs", "/dev", "tmpfs", "mode=755",
-		MS_NOSUID|MS_STRICTATIME, false,  false,
+		MS_NOSUID|MS_STRICTATIME, true, false, false,
 	},
         {
 		"tmpfs", "/dev/shm", "tmpfs", "mode=1777",
-		MS_NOSUID|MS_NODEV|MS_STRICTATIME, false, false,
+		MS_NOSUID|MS_NODEV|MS_STRICTATIME, true, false, false,
 	},
         {
 		"tmpfs", "/run", "tmpfs", "mode=755",
-		MS_NOSUID|MS_NODEV|MS_STRICTATIME, false, false,
+		MS_NOSUID|MS_NODEV|MS_STRICTATIME, true, false, false,
 	},
 	{
 		"tmpfs", "/tmp", "tmpfs", "mode=1777",
-		MS_STRICTATIME, false, false,
+		MS_STRICTATIME, true, false, false,
 	},
 };
 
@@ -208,6 +208,88 @@ static int write_file(char *filename, char *fmt, ...)
 	va_end(ap);
 
         return ret;
+}
+
+static int copy_devnodes(const char *root)
+{
+	static const char devnodes[] =
+		"null\0"
+		"zero\0"
+		"full\0"
+		"random\0"
+		"urandom\0"
+		"tty\0";
+
+	const char *d;
+	int ret = 0;
+
+	for (d = devnodes; (d) && *(d); (d) = strchr((d), 0)+1) {
+		char *to;
+		char *where;
+		unsigned len;
+		struct stat st;
+
+		len = strlen(root) + 1 + strlen("/dev/") +
+			strlen(d) + 1;
+		to = alloca(len);
+		where = alloca(len);
+		if (!where || !to) {
+			ret = -errno;
+			printf("alloca() failed: %d (%m)\n", ret);
+			return ret;
+		}
+
+		ret = snprintf(to, len, "/dev/%s", d);
+		ret = snprintf(where, len, "%s/dev/%s", root, d);
+		if (ret < 0) {
+			ret = -errno;
+			printf("snprintf() failed: %d (%m)\n", ret);
+			return ret;
+		}
+
+		if (stat(to, &st) < 0) {
+			ret = -errno;
+			printf("stat() %s failed: %d (%m)\n", to, ret);
+			return ret;
+		} else if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
+			ret = -EIO;
+			printf("%s is not a char or block device\n", to);
+			return ret;
+		} else {
+			int fd;
+			ret = mknod(where, st.st_mode, st.st_rdev);
+			if (!ret)
+				continue;
+
+			fd = open(where, O_WRONLY|O_CREAT|
+				  O_CLOEXEC|O_NOCTTY, 0644);
+			if (ret < 0) {
+				ret = -errno;
+				printf("failed to open() %s: %d (%m)\n",
+				       where, ret);
+				return ret;
+			}
+
+			ret = fchown(fd, 0, 0);
+			if (ret < 0) {
+				ret = -errno;
+				printf("failed to fchown() %s: %d (%m)\n",
+				       where, ret);
+				return ret;
+			}
+
+			ret = mount(to, where, NULL, MS_BIND, NULL);
+			if (ret < 0) {
+				ret = -errno;
+				printf("failed to mount() %s: %d (%m)\n",
+				       where, ret);
+				return ret;
+			}
+			close(fd);
+		}
+	}
+
+	return ret;
 }
 
 /* Setup a base file system */
@@ -489,6 +571,13 @@ static int test_uidshift_mount(void)
 	if (ret < 0) {
 		ret = -errno;
 		printf("error failed to setup a basic filesystem\n");
+		return ret;
+	}
+
+	ret = copy_devnodes(arg_root_dir);
+	if (ret < 0) {
+		ret = -errno;
+		printf("copy_devnodes() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
