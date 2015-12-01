@@ -1704,8 +1704,8 @@ int pid_getattr(struct vfsmount *mnt, struct dentry *dentry, struct kstat *stat)
 		if ((inode->i_mode == (S_IFDIR|S_IRUGO|S_IXUGO)) ||
 		    task_dumpable(task)) {
 			cred = __task_cred(task);
-			stat->uid = cred->euid;
-			stat->gid = cred->egid;
+			vfs_generic_kstat_uidgid(mnt, stat,
+						 cred->euid, cred->egid);
 		}
 	}
 	rcu_read_unlock();

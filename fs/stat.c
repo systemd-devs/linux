@@ -19,6 +19,22 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+void vfs_generic_kstat_uidgid(struct vfsmount *mnt, struct kstat *stat,
+			      kuid_t kuid, kgid_t kgid)
+{
+	if (mnt && mnt->user_ns &&
+	    !kuid_has_mapping(mnt->user_ns, VUID_TO_KUID(kuid)) &&
+	    !kgid_has_mapping(mnt->user_ns, VGID_TO_KGID(kgid))) {
+
+		/* map id down to the mnt userns */
+		stat->uid = make_kuid(mnt->user_ns, kuid.val);
+		stat->gid = make_kgid(mnt->user_ns, kgid.val);
+	} else {
+		stat->uid = kuid;
+		stat->gid = kgid;
+	}
+}
+
 void generic_fillattr(struct vfsmount *mnt, struct inode *inode,
 		      struct kstat *stat)
 {
@@ -26,16 +42,9 @@ void generic_fillattr(struct vfsmount *mnt, struct inode *inode,
 	stat->ino = inode->i_ino;
 	stat->mode = inode->i_mode;
 	stat->nlink = inode->i_nlink;
-	if (mnt && mnt->user_ns &&
-	    kuid_has_mapping(mnt->user_ns, VUID_TO_KUID(inode->i_uid)) &&
-	    kgid_has_mapping(mnt->user_ns, VGID_TO_KGID(inode->i_gid))) {
-		stat->uid = make_kuid(mnt->user_ns, inode->i_uid.val);
-		stat->gid = make_kgid(mnt->user_ns, inode->i_gid.val);
-	} else {
-		stat->uid = VUID_TO_KUID(inode->i_uid);
-		stat->gid = VGID_TO_KGID(inode->i_gid);
-	}
-
+	vfs_generic_kstat_uidgid(mnt, stat,
+				 VUID_TO_KUID(inode->i_uid),
+				 VGID_TO_KGID(inode->i_gid));
 	stat->rdev = inode->i_rdev;
 	stat->size = i_size_read(inode);
 	stat->atime = inode->i_atime;
