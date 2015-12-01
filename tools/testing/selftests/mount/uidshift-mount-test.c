@@ -27,7 +27,7 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 #ifndef MS_BIND_SHIFT_UIDGID
-# define MS_BIND_SHIFT_UIDGID    (1<<26)
+# define MS_BIND_SHIFT_UIDGID	(1<<26)
 #endif
 
 #ifndef CLONE_NEWUSER
@@ -44,11 +44,11 @@ static char *program_name;
 static char *arg_root_dir;
 
 typedef struct base_filesystem {
-        const char *dir;
-        mode_t mode;
-        const char *target;
-        const char *exists;
-        bool ignore_failure;
+	const char *dir;
+	mode_t mode;
+	const char *target;
+	const char *exists;
+	bool ignore_failure;
 } base_filesystem;
 
 typedef struct mount_point {
@@ -63,16 +63,16 @@ typedef struct mount_point {
 } mount_point;
 
 static const base_filesystem fs_table[] = {
-        { "bin",      0, "usr/bin\0",                  NULL },
-        { "lib",      0, "usr/lib\0",                  NULL },
-        { "root",  0755, NULL,                         NULL, true },
-        { "sbin",     0, "usr/sbin\0",                 NULL },
-        { "usr",   0755, NULL,                         NULL },
-        { "var",   0755, NULL,                         NULL },
-        { "etc",   0755, NULL,                         NULL },
+	{ "bin",	0, "usr/bin\0",		NULL },
+	{ "lib",	0, "usr/lib\0",		NULL },
+	{ "root",	0755, NULL,		NULL, true },
+	{ "sbin",	0, "usr/sbin\0",	NULL },
+	{ "usr",	0755, NULL,		NULL },
+	{ "var",	0755, NULL,		NULL },
+	{ "etc",	0755, NULL,		NULL },
 #if defined(__i386__) || defined(__x86_64__)
-        { "lib64",    0, "usr/lib/x86_64-linux-gnu\0"
-                         "usr/lib64\0",                "ld-linux-x86-64.so.2" },
+	{ "lib64",	0, "usr/lib/x86_64-linux-gnu\0"
+			"usr/lib64\0",		"ld-linux-x86-64.so.2" },
 #endif
 };
 
@@ -85,16 +85,16 @@ static const mount_point mnt_table[] = {
 		"/proc", "/proc", "bind", "vfs_uidshift=1",
 		MS_BIND, false, true, true,
 	},
-        {
+	{
 		"/proc/sys", "/proc/sys", NULL, NULL,
 		MS_BIND, false, true, false,
 	},	/* Bind mount first */
-        {
+	{
 		"/proc/sys", "/proc/sys", NULL, NULL,
 		MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
 		false, true, false,
 	},	/* Then, make it r/o */
-        {
+	{
 		"tmpfs", "/sys", "tmpfs", "mode=755",
 		MS_NOSUID|MS_NOEXEC|MS_NODEV, true, false, false,
 	},
@@ -102,15 +102,15 @@ static const mount_point mnt_table[] = {
 		"sysfs", "/sys", "sysfs", NULL,
 		MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, true, false, false,
 	},
-        {
+	{
 		"tmpfs", "/dev", "tmpfs", "mode=755",
 		MS_NOSUID|MS_STRICTATIME, true, false, false,
 	},
-        {
+	{
 		"tmpfs", "/dev/shm", "tmpfs", "mode=1777",
 		MS_NOSUID|MS_NODEV|MS_STRICTATIME, true, false, false,
 	},
-        {
+	{
 		"tmpfs", "/run", "tmpfs", "mode=755",
 		MS_NOSUID|MS_NODEV|MS_STRICTATIME, true, false, false,
 	},
@@ -120,8 +120,7 @@ static const mount_point mnt_table[] = {
 	},
 };
 
-static const struct option options[] =
-{
+static const struct option options[] = {
 	{ "help", no_argument, NULL, 'h' },
 	{ "users", optional_argument, NULL, 'u' },
 };
@@ -139,75 +138,75 @@ static int vmaybe_write_file(bool enoent_ok, char *filename,
 {
 	char buf[4096];
 	int fd;
-        int ret;
+	int ret;
 	ssize_t written;
 	int buf_len;
 
 	buf_len = vsnprintf(buf, sizeof(buf), fmt, ap);
 	if (buf_len < 0) {
-                ret = -errno;
+		ret = -errno;
 		printf("vsnprintf failed: %d (%m)\n", ret);
-                return ret;
+		return ret;
 	}
 	if (buf_len >= sizeof(buf)) {
-                ret = -1;
+		ret = -1;
 		printf("vsnprintf output truncated\n");
-                return ret;
+		return ret;
 	}
 
 	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
 		if ((errno == ENOENT) && enoent_ok)
 			return 0;
-                ret = -errno;
+		ret = -errno;
 		printf("open of %s failed: %d (%m)\n",
-		        filename, ret);
-                return ret;
+		       filename, ret);
+		return ret;
 	}
 	written = write(fd, buf, buf_len);
 	if (written != buf_len) {
 		if (written >= 0) {
 			printf("short write to %s\n", filename);
-                        return -1;
+			return -1;
 		} else {
-                        ret = -errno;
+			ret = -errno;
 			printf("write to %s failed: %d (%m)\n",
 				filename, ret);
-                        return ret;
+			return ret;
 		}
 	}
 	if (close(fd) != 0) {
-                ret = -errno;
+		ret = -errno;
 		printf("close of %s failed: %d (%m)\n",
 			filename, ret);
-                return ret;
+		return ret;
 	}
 
-        return 0;
+	return 0;
 }
 
 static int maybe_write_file(char *filename, char *fmt, ...)
 {
-        int ret;
+	int ret;
 	va_list ap;
 
 	va_start(ap, fmt);
 	ret = vmaybe_write_file(true, filename, fmt, ap);
 	va_end(ap);
 
-        return ret;
+	return ret;
 }
 
 static int write_file(char *filename, char *fmt, ...)
 {
-        int ret;
+	int ret;
 	va_list ap;
 
 	va_start(ap, fmt);
 	ret = vmaybe_write_file(false, filename, fmt, ap);
 	va_end(ap);
 
-        return ret;
+	return ret;
 }
 
 static int copy_devnodes(const char *root)
@@ -257,6 +256,7 @@ static int copy_devnodes(const char *root)
 			return ret;
 		} else {
 			int fd;
+
 			ret = mknod(where, st.st_mode, st.st_rdev);
 			if (!ret)
 				continue;
@@ -402,145 +402,145 @@ static int setup_move_root(const char *path)
 
 static int setup_uid_map(pid_t pid)
 {
-        int ret;
-        char buf[64];
+	int ret;
+	char buf[64];
 
-        /*
-        snprintf(buf, sizeof(buf), "/proc/%d/setgroups", pid);
+	/*
+	snprintf(buf, sizeof(buf), "/proc/%d/setgroups", pid);
 	ret = maybe_write_file(buf, "deny");
-        if (ret < 0)
-                goto err;
-        */
+	if (ret < 0)
+		goto err;
+	*/
 
-        snprintf(buf, sizeof(buf), "/proc/%d/uid_map", pid);
-	ret = write_file(buf, "0 %u %u \n",
-                         arg_uid_shift, arg_uid_range);
-        if (ret < 0)
-                goto err;
+	snprintf(buf, sizeof(buf), "/proc/%d/uid_map", pid);
+	ret = write_file(buf, "0 %u %u\n",
+			 arg_uid_shift, arg_uid_range);
+	if (ret < 0)
+		goto err;
 
-        snprintf(buf, sizeof(buf), "/proc/%d/gid_map", pid);
-	ret = write_file(buf, "0 %u %u \n",
-                         arg_uid_shift, arg_uid_range);
-        if (ret < 0)
-                goto err;
+	snprintf(buf, sizeof(buf), "/proc/%d/gid_map", pid);
+	ret = write_file(buf, "0 %u %u\n",
+			 arg_uid_shift, arg_uid_range);
+	if (ret < 0)
+		goto err;
 
-        return 0;
+	return 0;
 
 err:
-        printf("setting up the user namespace failed\n");
-        return ret;
+	printf("setting up the user namespace failed\n");
+	return ret;
 }
 
 static int update_uid_gid(void)
 {
-        int ret;
-        uid_t uid = 0; /* read them from /etc/passwd? */
-        gid_t gid = 0;
+	int ret;
+	uid_t uid = 0; /* read them from /etc/passwd? */
+	gid_t gid = 0;
 
-        (void) fchown(STDIN_FILENO, uid, gid);
-        (void) fchown(STDOUT_FILENO, uid, gid);
-        (void) fchown(STDERR_FILENO, uid, gid);
+	(void) fchown(STDIN_FILENO, uid, gid);
+	(void) fchown(STDOUT_FILENO, uid, gid);
+	(void) fchown(STDERR_FILENO, uid, gid);
 
-        ret = setgroups(0, NULL);
-        if (ret < 0) {
-                ret = -errno;
-                printf("setgroups() failed: %d (%m)\n", ret);
-                return ret;
-        }
+	ret = setgroups(0, NULL);
+	if (ret < 0) {
+		ret = -errno;
+		printf("setgroups() failed: %d (%m)\n", ret);
+		return ret;
+	}
 
-        ret = setresgid(gid, gid, gid);
-        if (ret < 0) {
-                ret = -errno;
-                printf("setresgid() failed: %d (%m)\n", ret);
-                return ret;
-        }
+	ret = setresgid(gid, gid, gid);
+	if (ret < 0) {
+		ret = -errno;
+		printf("setresgid() failed: %d (%m)\n", ret);
+		return ret;
+	}
 
-        ret = setresuid(uid, uid, uid);
-        if (ret < 0) {
-                ret = -errno;
-                printf("setresuid() failed: %d (%m)\n", ret);
-                return ret;
-        }
+	ret = setresuid(uid, uid, uid);
+	if (ret < 0) {
+		ret = -errno;
+		printf("setresuid() failed: %d (%m)\n", ret);
+		return ret;
+	}
 
-        return 0;
+	return 0;
 }
 
 static int child_test_filesystems(void)
 {
-        /* TODO stat proc inode entries... */
+	/* TODO stat proc inode entries... */
 
-        return 0;
+	return 0;
 }
 
 static int parent_test_filesystems(void)
 {
-        /* TODO stat inode entries from parent */
+	/* TODO stat inode entries from parent */
 
-        return 0;
+	return 0;
 }
 
 static int outer_child(void)
 {
-        int ret;
+	int ret;
 	eventfd_t event_status = 0;
 
 	/* We entered the child we are ready */
-        ret = eventfd_write(efd, 1);
-        if (ret < 0) {
-                ret = -errno;
-                printf("error eventfd_write(): %d (%m)\n", ret);
-                return ret;;
-        }
+	ret = eventfd_write(efd, 1);
+	if (ret < 0) {
+		ret = -errno;
+		printf("error eventfd_write(): %d (%m)\n", ret);
+		return ret;
+	}
 
 	ret = eventfd_read(efd_userns_child, &event_status);
 	if (ret < 0 || event_status != 1) {
-		printf("error eventfd_read() *** \n");
+		printf("error eventfd_read() ***\n");
 		return -1;
 	}
 
-        ret = update_uid_gid();
-        if (ret < 0)
-                return ret;
+	ret = update_uid_gid();
+	if (ret < 0)
+		return ret;
 
-        ret = child_test_filesystems();
-        if (ret < 0) {
-                printf("failed at filesystems test\n");
-                return ret;
-        }
+	ret = child_test_filesystems();
+	if (ret < 0) {
+		printf("failed at filesystems test\n");
+		return ret;
+	}
 
-        /* TODO: test here stats and other uidshift results */
-        execle("/bin/sh", "-sh", NULL, NULL);
+	/* TODO: test here stats and other uidshift results */
+	execle("/bin/sh", "-sh", NULL, NULL);
 
-        return -1;
+	return -1;
 }
 
 static void nop_handler(int sig) {}
 
 static int test_uidshift_mount(void)
 {
-        int ret;
-        int status;
-        pid_t pid, rpid;
-        struct sigaction oldsa;
-        struct sigaction sa = {
-                .sa_handler = nop_handler,
-                .sa_flags = SA_NOCLDSTOP,
-        };
+	int ret;
+	int status;
+	pid_t pid, rpid;
+	struct sigaction oldsa;
+	struct sigaction sa = {
+		.sa_handler = nop_handler,
+		.sa_flags = SA_NOCLDSTOP,
+	};
 	eventfd_t event_status = 0;
 
-        efd = eventfd(0, EFD_CLOEXEC);
-        if (efd < 0) {
-                ret = -errno;
-                printf("eventfd() failed: %d (%m)\n", ret);
-                return ret;
-        }
+	efd = eventfd(0, EFD_CLOEXEC);
+	if (efd < 0) {
+		ret = -errno;
+		printf("eventfd() failed: %d (%m)\n", ret);
+		return ret;
+	}
 
-        efd_userns_child = eventfd(0, EFD_CLOEXEC);
-        if (efd_userns_child < 0) {
-                ret = -errno;
-                printf("eventfd() failed: %d (%m)\n", ret);
-                return ret;
-        }
+	efd_userns_child = eventfd(0, EFD_CLOEXEC);
+	if (efd_userns_child < 0) {
+		ret = -errno;
+		printf("eventfd() failed: %d (%m)\n", ret);
+		return ret;
+	}
 
 	ret = sigaction(SIGCHLD, &sa, &oldsa);
 	if (ret < 0) {
@@ -553,8 +553,8 @@ static int test_uidshift_mount(void)
 	if (ret < 0) {
 		ret = -errno;
 		printf("mount() failed: %d (%m)\n", ret);
-                return ret;
-        }
+		return ret;
+	}
 
 	/* Turn directory into bind mount */
 	ret = mount(arg_root_dir, arg_root_dir, NULL,
@@ -598,10 +598,10 @@ static int test_uidshift_mount(void)
 	}
 
 	pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWUSER|
-                      CLONE_NEWNS|CLONE_NEWIPC|CLONE_NEWPID|
+		      CLONE_NEWNS|CLONE_NEWIPC|CLONE_NEWPID|
 		      CLONE_NEWUTS, NULL);
 	if (pid < 0) {
-                ret = -errno;
+		ret = -errno;
 		printf("clone() failed: %d (%m)\n", ret);
 		return ret;
 	}
@@ -622,12 +622,12 @@ static int test_uidshift_mount(void)
 			_exit(EXIT_FAILURE);
 		}
 
-                ret = mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
-                if (ret < 0) {
-                        ret = -errno;
-                        printf("mount() failed: %d (%m)\n", ret);
-                        _exit(EXIT_FAILURE);
-                }
+		ret = mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
+		if (ret < 0) {
+			ret = -errno;
+			printf("mount() failed: %d (%m)\n", ret);
+			_exit(EXIT_FAILURE);
+		}
 
 		ret = setup_basic_filesystem("/", arg_uid_shift,
 					     (gid_t) arg_uid_shift, true);
@@ -637,23 +637,23 @@ static int test_uidshift_mount(void)
 			_exit(EXIT_FAILURE);
 		}
 
-                ret = outer_child();
-                _exit(ret);
-        }
+		ret = outer_child();
+		_exit(ret);
+	}
 
 	ret = eventfd_read(efd, &event_status);
 	if (ret < 0) {
-                ret = -errno;
+		ret = -errno;
 		printf("error eventfd_read()\n");
 		return ret;
 	}
 
-        ret = setup_uid_map(pid);
-        if (ret < 0) {
-                ret = -errno;
-                printf("error mapping uid and gid in userns\n");
-                return ret;
-        }
+	ret = setup_uid_map(pid);
+	if (ret < 0) {
+		ret = -errno;
+		printf("error mapping uid and gid in userns\n");
+		return ret;
+	}
 
 	ret = eventfd_write(efd_userns_child, 1);
 	if (ret < 0) {
@@ -662,88 +662,88 @@ static int test_uidshift_mount(void)
 		return ret;
 	}
 
-        ret = parent_test_filesystems();
+	ret = parent_test_filesystems();
 	if (ret < 0) {
 		printf("Testing filesystem in parent failed\n");
 		return ret;
 	}
 
-        rpid = waitpid(pid, &status, 0);
-        if (rpid < 0) {
-                ret = -errno;
-                printf("waitpid() failed: %d (%m)\n", ret);
-                return ret;
-        }
+	rpid = waitpid(pid, &status, 0);
+	if (rpid < 0) {
+		ret = -errno;
+		printf("waitpid() failed: %d (%m)\n", ret);
+		return ret;
+	}
 
-        if (rpid != pid) {
+	if (rpid != pid) {
 		printf("waited for %d got %d\n", pid, rpid);
-                return -1;
-        }
+		return -1;
+	}
 
-        close(efd);
-        close(efd_userns_child);
+	close(efd);
+	close(efd_userns_child);
 
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                printf("child did not terminate cleanly\n");
-                return -1;
-        }
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		printf("child did not terminate cleanly\n");
+		return -1;
+	}
 
-        return 0;
+	return 0;
 }
 
 static int parse_uid(const char *arg)
 {
-        int ret;
-        unsigned long l;
-        unsigned long long ll;
-        const char *range, *shift;
-        char *buffer = NULL, *x = NULL;
+	int ret;
+	unsigned long l;
+	unsigned long long ll;
+	const char *range, *shift;
+	char *buffer = NULL, *x = NULL;
 
 	if (!arg)
 		return -ENXIO;
 
-        range = strchr(arg, ':');
-        if (range) {
-                buffer = strndup(arg, range - arg);
-                if (!buffer) {
-                        ret = -errno;
-                        printf("strndup() failed: %d (%m)\n", ret);
-                        return ret;
-                }
+	range = strchr(arg, ':');
+	if (range) {
+		buffer = strndup(arg, range - arg);
+		if (!buffer) {
+			ret = -errno;
+			printf("strndup() failed: %d (%m)\n", ret);
+			return ret;
+		}
 
-                shift = buffer;
-                range++;
+		shift = buffer;
+		range++;
 
-                errno = 0;
-                l = strtoul(range, &x, 0);
-                if (!x || x == range || *x || errno ||
-                    (unsigned long) (unsigned) l != l || l == 0) {
-                        printf("failed to parse UID range: %s\n", range);
-                        return -ENXIO;
-                }
+		errno = 0;
+		l = strtoul(range, &x, 0);
+		if (!x || x == range || *x || errno ||
+		    (unsigned long) (unsigned) l != l || l == 0) {
+			printf("failed to parse UID range: %s\n", range);
+			return -ENXIO;
+		}
 
-                arg_uid_range = (unsigned) l;
+		arg_uid_range = (unsigned) l;
 
-        } else {
-                shift = arg;
-        }
+	} else {
+		shift = arg;
+	}
 
-        errno = 0;
-        x = NULL;
-        ll = strtoull(shift, &x, 0);
-        if (!x || x == shift || *x || errno ||
-            (unsigned long long) (unsigned) ll != ll ||
-            (uid_t) ll == (uid_t) 0xFFFFFFFF || /* INVALID_UID is special */
-            (uid_t) ll == (uid_t) 0xFFFF) {
-                printf("Failed to parse UID: %s\n", shift);
-                return -ENXIO;
-        }
+	errno = 0;
+	x = NULL;
+	ll = strtoull(shift, &x, 0);
+	if (!x || x == shift || *x || errno ||
+	    (unsigned long long) (unsigned) ll != ll ||
+	    (uid_t) ll == (uid_t) 0xFFFFFFFF || /* INVALID_UID is special */
+	    (uid_t) ll == (uid_t) 0xFFFF) {
+		printf("Failed to parse UID: %s\n", shift);
+		return -ENXIO;
+	}
 
-        arg_uid_shift = (unsigned) ll;
+	arg_uid_shift = (unsigned) ll;
 
-        free(buffer);
+	free(buffer);
 
-        return 0;
+	return 0;
 }
 
 int main(int argc, char *argv[])
@@ -753,13 +753,13 @@ int main(int argc, char *argv[])
 	int status;
 	pid_t pid, rpid;
 
-        program_name = strdup(argv[0]);
-        if (!program_name) {
-                printf("strdup() failed: %d (%m)\n", -errno);
-                exit(EXIT_FAILURE);
-        }
+	program_name = strdup(argv[0]);
+	if (!program_name) {
+		printf("strdup() failed: %d (%m)\n", -errno);
+		exit(EXIT_FAILURE);
+	}
 
-        program_name = basename(program_name);
+	program_name = basename(program_name);
 	while ((c = getopt_long(argc, argv, "+hu:", options, NULL)) >= 0) {
 		switch (c) {
 		case 'h':
@@ -783,17 +783,17 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-        arg_root_dir = strdup(argv[optind]);
-        if (!arg_root_dir) {
-                printf("strdup() failed: %d (%m)\n", -errno);
-                exit(EXIT_FAILURE);
+	arg_root_dir = strdup(argv[optind]);
+	if (!arg_root_dir) {
+		printf("strdup() failed: %d (%m)\n", -errno);
+		exit(EXIT_FAILURE);
 	}
 
-        if (getuid() != 0) {
-                printf("%s: can't map arbitrary uids, test skipped.\n",
+	if (getuid() != 0) {
+		printf("%s: can't map arbitrary uids, test skipped.\n",
 		       program_name);
-                exit(EXIT_SUCCESS);
-        }
+		exit(EXIT_SUCCESS);
+	}
 
 	pid = syscall(__NR_clone, SIGCHLD|CLONE_NEWNS, NULL);
 	if (pid < 0) {
@@ -818,22 +818,22 @@ int main(int argc, char *argv[])
 		_exit(EXIT_SUCCESS);
 	}
 
-        rpid = waitpid(pid, &status, 0);
-        if (rpid < 0) {
-                ret = -errno;
-                printf("waitpid() failed: %d (%m)\n", ret);
-                exit(EXIT_FAILURE);
-        }
+	rpid = waitpid(pid, &status, 0);
+	if (rpid < 0) {
+		ret = -errno;
+		printf("waitpid() failed: %d (%m)\n", ret);
+		exit(EXIT_FAILURE);
+	}
 
-        if (rpid != pid) {
+	if (rpid != pid) {
 		printf("waited for %d got %d\n", pid, rpid);
-                exit(EXIT_FAILURE);
-        }
+		exit(EXIT_FAILURE);
+	}
 
-        if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-                printf("child did not terminate cleanly\n");
-                exit(EXIT_FAILURE);
-        }
+	if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		printf("child did not terminate cleanly\n");
+		exit(EXIT_FAILURE);
+	}
 
 	return EXIT_SUCCESS;
 }
