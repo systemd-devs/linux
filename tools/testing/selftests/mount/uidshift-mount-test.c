@@ -41,7 +41,16 @@ static int efd_userns_child;
 static uid_t arg_uid_shift = UID_INVALID;
 static uid_t arg_uid_range = 0x10000U;
 static char *program_name;
-static char *arg_root_dir;
+
+enum {
+	ARG_LOWER_DIR = 0x100,
+	ARG_UPPER_DIR,
+	ARG_WORK_DIR,
+};
+
+static char *arg_lower;
+static char *arg_upper;
+static char *arg_work;
 
 typedef struct base_filesystem {
 	const char *dir;
@@ -123,13 +132,19 @@ static const mount_point mnt_table[] = {
 static const struct option options[] = {
 	{ "help", no_argument, NULL, 'h' },
 	{ "users", optional_argument, NULL, 'u' },
+	{ "lowerdir", required_argument, NULL, ARG_LOWER_DIR, },
+	{ "upperdir", required_argument, NULL, ARG_UPPER_DIR, },
+	{ "workdir", required_argument, NULL, ARG_WORK_DIR, },
 };
 
 static void help(void)
 {
-	printf("%s [OPTIONS...] filesystem\n\n\n"
+	printf("%s [OPTIONS...]\n\n\n"
 	       "-h, --help		Show this help\n"
-	       "-u, --users[=UIDBASE[:NUIDS]]	Set the user namespace shift\n",
+	       "-u, --users[=UIDBASE[:NUIDS]]	Set the user namespace shift\n"
+	       "    --lowerdir=dir	Overlay lower directory\n"
+	       "    --upperdir=dir	Overlay upper directory\n"
+	       "    --workdir=dir	Overlay work directory\n",
 	       program_name);
 }
 
@@ -292,6 +307,37 @@ static int copy_devnodes(const char *root)
 	return ret;
 }
 
+static int mount_overlay(const char *lower, const char *upper,
+			 const char *work)
+{
+	int ret;
+	char *options;
+
+	options = alloca(1024);
+	if (!options) {
+		ret = -errno;
+		printf("alloca() failed: %d (%m)\n", ret);
+		return ret;
+	}
+
+	ret = snprintf(options, 1024, "lowerdir=%s,upperdir=%s,workdir=%s",
+		       lower, upper, work);
+	if (ret < 0) {
+		ret = -errno;
+		printf("snprintf() failed: %d (%m)\n", ret);
+		return ret;
+	}
+
+	ret = mount("overlay", upper, "overlay", 0, options);
+	if (ret < 0) {
+		ret = -errno;
+		printf("failed to mount() %s: %d (%m)\n", upper, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 /* Setup a base file system */
 static int setup_basic_filesystem(const char *root, uid_t uid,
 				  gid_t gid, bool in_userns)
@@ -313,7 +359,8 @@ static int setup_basic_filesystem(const char *root, uid_t uid,
 			      F_OK, AT_SYMLINK_NOFOLLOW) < 0 &&
 		    fs_table[i].ignore_failure) {
 			ret = -errno;
-			printf("faccessat() %s failed\n", fs_table[i].dir);
+			printf("faccessat() %s failed: %d (%m)\n",
+			       fs_table[i].dir, ret);
 			goto out;
 		}
 	}
@@ -400,6 +447,50 @@ static int setup_move_root(const char *path)
 	return 0;
 }
 
+static int access_inodes(void)
+{
+	return 0;
+}
+
+static int stat_inodes(uid_t uid, gid_t gid)
+{
+	static const char files[] =
+		"/\0"
+		"/root/\0"
+		"/etc/passwd\0"
+		"/proc/1/cmdline\0";
+
+	const char *f;
+	int ret = 0;
+
+	for (f = files; (f) && *(f); (f) = strchr((f), 0)+1) {
+		struct stat sb;
+		memset(&sb, 0, sizeof(sb));
+
+		ret = syscall(__NR_lstat, f, &sb);
+		if (ret < 0) {
+			ret = -errno;
+			printf("stat() %s failed: %d (%m)\n", f, ret);
+			return ret;
+		}
+
+		printf("File: '%s'\n"
+		       "Size: %lld\n"
+		       "Access: (%lo)   Uid: %ld   Gid: %ld\n",
+		       f, (long long) sb.st_size,
+		       (unsigned long) sb.st_mode,
+		       (long) sb.st_uid, (long) sb.st_gid);
+
+		if (sb.st_uid != uid || sb.st_gid != gid) {
+			printf("stat() %s Uid and Gid comparison failed\n",
+			       f);
+			return -EIO;
+		}
+	}
+
+	return 0;
+}
+
 static int setup_uid_map(pid_t pid)
 {
 	int ret;
@@ -469,7 +560,23 @@ static int child_test_filesystems(void)
 {
 	/* TODO stat proc inode entries... */
 
-	return 0;
+	int ret;
+	uid_t uid = 0;
+	gid_t gid = 0;
+
+	ret = stat_inodes(uid, gid);
+	if (ret < 0) {
+		printf("stat_inodes() failed: %d (%m)\n", ret);
+		return ret;
+	}
+
+	ret = access_inodes();
+	if (ret < 0) {
+		printf("access_inodes() failed: %d (%m)\n", ret);
+		return ret;
+	}
+
+	return ret;
 }
 
 static int parent_test_filesystems(void)
@@ -557,16 +664,22 @@ static int test_uidshift_mount(void)
 	}
 
 	/* Turn directory into bind mount */
-	ret = mount(arg_root_dir, arg_root_dir, NULL,
+	ret = mount(arg_lower, arg_lower, NULL,
 		    MS_BIND|MS_REC, NULL);
 	if (ret < 0) {
 		ret = -errno;
 		printf("mount() %s failed: %d (%m)\n",
-		       arg_root_dir, ret);
+		       arg_lower, ret);
 		return ret;
 	}
 
-	ret = setup_basic_filesystem(arg_root_dir, arg_uid_shift,
+	ret = mount_overlay(arg_lower, arg_upper, arg_work);
+	if (ret < 0) {
+		printf("mount_overlay() failed: %d (%m)\n", ret);
+		return ret;
+	}
+
+	ret = setup_basic_filesystem(arg_upper, arg_uid_shift,
 				     (gid_t) arg_uid_shift, false);
 	if (ret < 0) {
 		ret = -errno;
@@ -574,21 +687,21 @@ static int test_uidshift_mount(void)
 		return ret;
 	}
 
-	ret = copy_devnodes(arg_root_dir);
+	ret = copy_devnodes(arg_upper);
 	if (ret < 0) {
 		ret = -errno;
 		printf("copy_devnodes() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
-	ret = setup_move_root(arg_root_dir);
+	ret = setup_move_root(arg_upper);
 	if (ret < 0) {
 		ret = -errno;
 		printf("setup_move_root() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
-	/* Set the MS_BIND_SHIFT_UIDGID flag */
+	/* Set the MS_BIND_SHIFT_UIDGID flag on rootfs */
 	ret = mount(NULL, "/", NULL, MS_BIND_SHIFT_UIDGID|MS_REC, NULL);
 	if (ret < 0) {
 		ret = -errno;
@@ -749,7 +862,7 @@ static int parse_uid(const char *arg)
 int main(int argc, char *argv[])
 {
 	int ret;
-	int c;
+	int c, dir_cnt = 0;
 	int status;
 	pid_t pid, rpid;
 
@@ -773,19 +886,31 @@ int main(int argc, char *argv[])
 
 			break;
 
+		case ARG_LOWER_DIR:
+			arg_lower = strndup(optarg, strlen(optarg));
+			if (arg_lower)
+				dir_cnt++;
+			break;
+
+		case ARG_UPPER_DIR:
+			arg_upper = strndup(optarg, strlen(optarg));
+			if (arg_upper)
+				dir_cnt++;
+			break;
+
+		case ARG_WORK_DIR:
+			arg_work = strndup(optarg, strlen(optarg));
+			if (arg_work)
+				dir_cnt++;
+			break;
+
 		default:
 			break;
 		}
 	}
 
-	if (!argv[optind]) {
-		help();
-		exit(EXIT_FAILURE);
-	}
-
-	arg_root_dir = strdup(argv[optind]);
-	if (!arg_root_dir) {
-		printf("strdup() failed: %d (%m)\n", -errno);
+	if (dir_cnt != 3) {
+		fprintf(stderr, "failed to parse overlay dirs\n");
 		exit(EXIT_FAILURE);
 	}
 
