@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 
 struct ovl_entry;
+struct ovl_fs;
 
 enum ovl_path_type {
 	__OVL_PATH_PURE		= (1 << 0),
@@ -174,6 +175,9 @@ ssize_t ovl_getxattr(struct dentry *dentry, const char *name,
 ssize_t ovl_listxattr(struct dentry *dentry, char *list, size_t size);
 int ovl_removexattr(struct dentry *dentry, const char *name);
 struct inode *ovl_d_select_inode(struct dentry *dentry, unsigned file_flags);
+
+kuid_t ovl_vfs_shift_kuid(struct ovl_fs *ofs, kuid_t kuid);
+kgid_t ovl_vfs_shift_kgid(struct ovl_fs *ofs, kgid_t kgid);
 
 struct inode *ovl_new_inode(struct super_block *sb, umode_t mode,
 			    struct ovl_entry *oe);
