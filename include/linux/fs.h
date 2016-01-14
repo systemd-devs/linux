@@ -1496,6 +1496,12 @@ static inline void sb_start_intwrite(struct super_block *sb)
 	__sb_start_write(sb, SB_FREEZE_FS, true);
 }
 
+/*
+ * VFS shift kuid and kgid according to the user namespace of the
+ * containing mount namespace
+ */
+extern kuid_t vfs_shift_kuid(kuid_t kuid);
+extern kgid_t vfs_shift_kgid(kgid_t kgid);
 
 extern bool inode_owner_or_capable(const struct inode *inode);
 
