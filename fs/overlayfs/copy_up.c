@@ -378,6 +378,7 @@ out_free_link:
 int ovl_copy_up(struct dentry *dentry)
 {
 	int err;
+	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
 
 	err = 0;
 	while (!err) {
@@ -385,6 +386,7 @@ int ovl_copy_up(struct dentry *dentry)
 		struct dentry *parent;
 		struct path lowerpath;
 		struct kstat stat;
+		struct inode *inode;
 		enum ovl_path_type type = ovl_path_type(dentry);
 
 		if (OVL_TYPE_UPPER(type))
@@ -403,10 +405,15 @@ int ovl_copy_up(struct dentry *dentry)
 			next = parent;
 		}
 
+		inode = d_backing_inode(next);
 		ovl_path_lower(next, &lowerpath);
 		err = vfs_getattr(&lowerpath, &stat);
-		if (!err)
+		if (!err) {
+			/* shift UID and GID in case */
+			stat.uid = ovl_vfs_shift_kuid(ofs, inode->i_uid);
+			stat.gid = ovl_vfs_shift_kgid(ofs, inode->i_gid);
 			err = ovl_copy_up_one(parent, next, &lowerpath, &stat, NULL);
+		}
 
 		dput(parent);
 		dput(next);
