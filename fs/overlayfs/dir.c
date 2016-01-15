@@ -138,6 +138,8 @@ static int ovl_dir_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	int err;
 	enum ovl_path_type type;
 	struct path realpath;
+	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
+	struct inode *inode = d_backing_inode(dentry);
 
 	type = ovl_path_real(dentry, &realpath);
 	err = vfs_getattr(&realpath, stat);
@@ -146,6 +148,10 @@ static int ovl_dir_getattr(struct vfsmount *mnt, struct dentry *dentry,
 
 	stat->dev = dentry->d_sb->s_dev;
 	stat->ino = dentry->d_inode->i_ino;
+
+	/* shift UID and GID if necessary */
+	stat->uid = ovl_vfs_shift_kuid(ofs, inode->i_uid);
+	stat->gid = ovl_vfs_shift_kgid(ofs, inode->i_gid);
 
 	/*
 	 * It's probably not worth it to count subdirs to get the
