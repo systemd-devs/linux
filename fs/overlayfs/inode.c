@@ -19,6 +19,8 @@ static int ovl_copy_up_last(struct dentry *dentry, struct iattr *attr,
 	struct dentry *parent;
 	struct kstat stat;
 	struct path lowerpath;
+	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
+	struct inode *inode = d_backing_inode(dentry);
 
 	parent = dget_parent(dentry);
 	err = ovl_copy_up(parent);
@@ -32,6 +34,9 @@ static int ovl_copy_up_last(struct dentry *dentry, struct iattr *attr,
 
 	if (no_data)
 		stat.size = 0;
+
+	stat.uid = ovl_vfs_shift_kuid(ofs, inode->i_uid);
+	stat.gid = ovl_vfs_shift_kgid(ofs, inode->i_gid);
 
 	err = ovl_copy_up_one(parent, dentry, &lowerpath, &stat, attr);
 
