@@ -743,7 +743,7 @@ static int test_uidshift_mount(void)
 
 	ret = userns_lchown(arg_work, 0, 0);
 	if (ret < 0) {
-		printf("failed to lchown() %s: %d (%m)\n", arg_work);
+		printf("failed to lchown() %s: %d (%m)\n", arg_work, ret);
 		return ret;
 	}
 
