@@ -26,10 +26,6 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#ifndef MS_BIND_SHIFT_UIDGID
-# define MS_BIND_SHIFT_UIDGID	(1<<26)
-#endif
-
 #ifndef CLONE_NEWUSER
 # define CLONE_NEWUSER 0x10000000
 #endif
@@ -72,6 +68,15 @@ typedef struct mount_point {
 	bool fatal;
 } mount_point;
 
+static const char root_fs_files[] =
+	"/\0"
+	"/root/\0"
+	"/etc/passwd\0";
+
+static const char proc_fs_files[] =
+	"/proc/self/cmdline\0"
+	"/proc/1/cmdline\0";
+
 static const base_filesystem fs_table[] = {
 	{ "bin",	0, "usr/bin\0",		NULL },
 	{ "lib",	0, "usr/lib\0",		NULL },
@@ -92,7 +97,7 @@ static const mount_point mnt_table[] = {
 		MS_NOSUID|MS_NOEXEC|MS_NODEV, true, true, true,
 	},
 	{
-		"/proc", "/proc", "bind", "vfs_uidshift=1",
+		"/proc", "/proc", "bind", NULL,
 		MS_BIND, false, true, true,
 	},
 	{
@@ -378,7 +383,7 @@ static int mount_overlay(const char *lower, const char *upper,
 		return ret;
 	}
 
-	ret = snprintf(options, 1024, "lowerdir=%s,upperdir=%s,workdir=%s",
+	ret = snprintf(options, 1024, "lowerdir=%s,upperdir=%s,workdir=%s,shift_uids,shift_gids",
 		       lower, upper, work);
 	if (ret < 0) {
 		ret = -errno;
@@ -510,14 +515,8 @@ static int access_inodes(void)
 	return 0;
 }
 
-static int stat_inodes(uid_t uid, gid_t gid)
+static int stat_inodes(const char *files, uid_t uid, gid_t gid)
 {
-	static const char files[] =
-		"/\0"
-		"/root/\0"
-		"/etc/passwd\0"
-		"/proc/1/cmdline\0";
-
 	const char *f;
 	int ret = 0;
 
@@ -533,16 +532,15 @@ static int stat_inodes(uid_t uid, gid_t gid)
 		}
 
 		printf("File: '%s'\n"
-		       "Size: %lld\n"
 		       "Access: (%lo)   Uid: %ld   Gid: %ld\n",
-		       f, (long long) sb.st_size,
-		       (unsigned long) sb.st_mode,
+		       f, (unsigned long) sb.st_mode,
 		       (long) sb.st_uid, (long) sb.st_gid);
 
 		if (sb.st_uid != uid || sb.st_gid != gid) {
+			errno = EIO;
 			printf("stat() %s Uid and Gid comparison failed\n",
 			       f);
-			return -EIO;
+			return -errno;
 		}
 	}
 
@@ -622,7 +620,7 @@ static int child_test_filesystems(void)
 	uid_t uid = 0;
 	gid_t gid = 0;
 
-	ret = stat_inodes(uid, gid);
+	ret = stat_inodes(root_fs_files, uid, gid);
 	if (ret < 0) {
 		printf("stat_inodes() failed: %d (%m)\n", ret);
 		return ret;
@@ -737,6 +735,18 @@ static int test_uidshift_mount(void)
 		return ret;
 	}
 
+	ret = userns_lchown(arg_upper, 0, 0);
+	if (ret < 0) {
+		printf("failed to lchown() %s : %d (%m)\n", arg_upper, ret);
+		return ret;
+	}
+
+	ret = userns_lchown(arg_work, 0, 0);
+	if (ret < 0) {
+		printf("failed to lchown() %s: %d (%m)\n", arg_work);
+		return ret;
+	}
+
 	ret = setup_basic_filesystem(arg_upper, arg_uid_shift,
 				     (gid_t) arg_uid_shift, false);
 	if (ret < 0) {
@@ -763,15 +773,6 @@ static int test_uidshift_mount(void)
 	if (ret < 0) {
 		ret = -errno;
 		printf("setup_move_root() failed: %d (%m)\n", ret);
-		return ret;
-	}
-
-	/* Set the MS_BIND_SHIFT_UIDGID flag on rootfs */
-	ret = mount(NULL, "/", NULL, MS_BIND_SHIFT_UIDGID|MS_REC, NULL);
-	if (ret < 0) {
-		ret = -errno;
-		printf("mount() MS_BIND_SHIFT_UIDGID failed: %d (%m)\n",
-		       ret);
 		return ret;
 	}
 
