@@ -30,6 +30,8 @@ struct ovl_config {
 	char *lowerdir;
 	char *upperdir;
 	char *workdir;
+	int shift_uids:1;
+	int shift_gids:1;
 };
 
 /* private information held for overlayfs's superblock */
@@ -61,6 +63,22 @@ struct ovl_entry {
 };
 
 #define OVL_MAX_STACK 500
+
+kuid_t ovl_vfs_shift_kuid(struct ovl_fs *ofs, kuid_t kuid)
+{
+	if (ofs->config.shift_uids)
+		return vfs_shift_kuid(kuid);
+
+	return kuid;
+}
+
+kgid_t ovl_vfs_shift_kgid(struct ovl_fs *ofs, kgid_t kgid)
+{
+	if (ofs->config.shift_gids)
+		return vfs_shift_kgid(kgid);
+
+	return kgid;
+}
 
 static struct dentry *__ovl_dentry_lower(struct ovl_entry *oe)
 {
@@ -618,6 +636,8 @@ enum {
 	OPT_LOWERDIR,
 	OPT_UPPERDIR,
 	OPT_WORKDIR,
+	OPT_SHIFT_UIDS,
+	OPT_SHIFT_GIDS,
 	OPT_ERR,
 };
 
@@ -625,6 +645,8 @@ static const match_table_t ovl_tokens = {
 	{OPT_LOWERDIR,			"lowerdir=%s"},
 	{OPT_UPPERDIR,			"upperdir=%s"},
 	{OPT_WORKDIR,			"workdir=%s"},
+	{OPT_SHIFT_UIDS,		"shift_uids"},
+	{OPT_SHIFT_GIDS,		"shift_gids"},
 	{OPT_ERR,			NULL}
 };
 
@@ -683,6 +705,20 @@ static int ovl_parse_opt(char *opt, struct ovl_config *config)
 			config->workdir = match_strdup(&args[0]);
 			if (!config->workdir)
 				return -ENOMEM;
+			break;
+
+		case OPT_SHIFT_UIDS:
+			if (!capable(CAP_SYS_ADMIN))
+				return -EPERM;
+
+			config->shift_uids = 1;
+			break;
+
+		case OPT_SHIFT_GIDS:
+			if (!capable(CAP_SYS_ADMIN))
+				return -EPERM;
+
+			config->shift_gids = 1;
 			break;
 
 		default:
