@@ -487,7 +487,6 @@ static int setup_basic_filesystem(const char *root, uid_t uid,
 		/* TODO: check mkdir() errors */
 		ret = mkdir(where, 0755);
 
-		printf("mounting %s   %s\n", where, mnt_table[i].options);
 		ret = mount(mnt_table[i].what, where,
 			    mnt_table[i].type,
 			    mnt_table[i].flags,
