@@ -169,6 +169,7 @@ static int ovl_create_upper(struct dentry *dentry, struct inode *inode,
 			    struct dentry *hardlink)
 {
 	struct dentry *upperdir = ovl_dentry_upper(dentry->d_parent);
+	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
 	struct inode *udir = upperdir->d_inode;
 	struct dentry *newdentry;
 	int err;
@@ -185,7 +186,7 @@ static int ovl_create_upper(struct dentry *dentry, struct inode *inode,
 
 	ovl_dentry_version_inc(dentry->d_parent);
 	ovl_dentry_update(dentry, newdentry);
-	ovl_copyattr(newdentry->d_inode, inode);
+	ovl_copyattr(ofs, newdentry->d_inode, inode);
 	d_instantiate(dentry, inode);
 	newdentry = NULL;
 out_dput:
@@ -327,6 +328,7 @@ static int ovl_create_over_whiteout(struct dentry *dentry, struct inode *inode,
 	struct inode *wdir = workdir->d_inode;
 	struct dentry *upperdir = ovl_dentry_upper(dentry->d_parent);
 	struct inode *udir = upperdir->d_inode;
+	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
 	struct dentry *upper;
 	struct dentry *newdentry;
 	int err;
@@ -371,7 +373,7 @@ static int ovl_create_over_whiteout(struct dentry *dentry, struct inode *inode,
 	}
 	ovl_dentry_version_inc(dentry->d_parent);
 	ovl_dentry_update(dentry, newdentry);
-	ovl_copyattr(newdentry->d_inode, inode);
+	ovl_copyattr(ofs, newdentry->d_inode, inode);
 	d_instantiate(dentry, inode);
 	newdentry = NULL;
 out_dput2:

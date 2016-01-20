@@ -64,6 +64,22 @@ struct ovl_entry {
 
 #define OVL_MAX_STACK 500
 
+int ovl_config_shift_uids(struct ovl_fs *ofs)
+{
+	if (ofs->config.shift_uids)
+		return 1;
+
+	return 0;
+}
+
+int ovl_config_shift_gids(struct ovl_fs *ofs)
+{
+	if (ofs->config.shift_gids)
+		return 1;
+
+	return 0;
+}
+
 kuid_t ovl_vfs_shift_kuid(struct ovl_fs *ofs, kuid_t kuid)
 {
 	if (ofs->config.shift_uids)
@@ -417,6 +433,7 @@ struct dentry *ovl_lookup(struct inode *dir, struct dentry *dentry,
 {
 	struct ovl_entry *oe;
 	struct ovl_entry *poe = dentry->d_parent->d_fsdata;
+	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
 	struct path *stack = NULL;
 	struct dentry *upperdir, *upperdentry = NULL;
 	unsigned int ctr = 0;
@@ -524,7 +541,7 @@ struct dentry *ovl_lookup(struct inode *dir, struct dentry *dentry,
 				      oe);
 		if (!inode)
 			goto out_free_oe;
-		ovl_copyattr(realdentry->d_inode, inode);
+		ovl_copyattr(ofs, realdentry->d_inode, inode);
 	}
 
 	oe->opaque = upperopaque;

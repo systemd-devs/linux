@@ -176,15 +176,18 @@ ssize_t ovl_listxattr(struct dentry *dentry, char *list, size_t size);
 int ovl_removexattr(struct dentry *dentry, const char *name);
 struct inode *ovl_d_select_inode(struct dentry *dentry, unsigned file_flags);
 
+int ovl_config_shift_uids(struct ovl_fs *ofs);
+int ovl_config_shift_gids(struct ovl_fs *ofs);
 kuid_t ovl_vfs_shift_kuid(struct ovl_fs *ofs, kuid_t kuid);
 kgid_t ovl_vfs_shift_kgid(struct ovl_fs *ofs, kgid_t kgid);
 
 struct inode *ovl_new_inode(struct super_block *sb, umode_t mode,
 			    struct ovl_entry *oe);
-static inline void ovl_copyattr(struct inode *from, struct inode *to)
+static inline void ovl_copyattr(struct ovl_fs *ofs,
+				struct inode *from, struct inode *to)
 {
-	to->i_uid = from->i_uid;
-	to->i_gid = from->i_gid;
+	to->i_uid = ovl_vfs_shift_kuid(ofs, from->i_uid);
+	to->i_gid = ovl_vfs_shift_kgid(ofs, from->i_gid);
 }
 
 /* dir.c */
