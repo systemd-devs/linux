@@ -1665,6 +1665,7 @@ kuid_t vfs_shift_kuid(kuid_t kuid)
 
 	return kuid;
 }
+EXPORT_SYMBOL_GPL(vfs_shift_kuid);
 
 kgid_t vfs_shift_kgid(kgid_t kgid)
 {
@@ -1675,6 +1676,7 @@ kgid_t vfs_shift_kgid(kgid_t kgid)
 
 	return kgid;
 }
+EXPORT_SYMBOL_GPL(vfs_shift_kgid);
 
 static bool mnt_ns_loop(struct dentry *dentry)
 {
