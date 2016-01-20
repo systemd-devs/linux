@@ -1664,6 +1664,28 @@ struct mnt_namespace *to_mnt_ns(struct ns_common *ns)
 	return container_of(ns, struct mnt_namespace, ns);
 }
 
+kuid_t vfs_shift_kuid(kuid_t kuid)
+{
+	struct user_namespace *ns = current->nsproxy->mnt_ns->user_ns;
+
+	if (!kuid_has_mapping(ns, kuid))
+		return make_kuid(ns, kuid.val);
+
+	return kuid;
+}
+EXPORT_SYMBOL_GPL(vfs_shift_kuid);
+
+kgid_t vfs_shift_kgid(kgid_t kgid)
+{
+	struct user_namespace *ns = current->nsproxy->mnt_ns->user_ns;
+
+	if (!kgid_has_mapping(ns, kgid))
+		return make_kgid(ns, kgid.val);
+
+	return kgid;
+}
+EXPORT_SYMBOL_GPL(vfs_shift_kgid);
+
 static bool mnt_ns_loop(struct dentry *dentry)
 {
 	/* Could bind mounting the mount namespace inode cause a
