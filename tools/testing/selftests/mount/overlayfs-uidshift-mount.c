@@ -43,11 +43,13 @@ enum {
 	ARG_LOWER_DIR = 0x100,
 	ARG_UPPER_DIR,
 	ARG_WORK_DIR,
+	ARG_MERGE_DIR,
 };
 
 static char *arg_lower;
 static char *arg_upper;
 static char *arg_work;
+static char *arg_merge;
 
 typedef struct base_filesystem {
 	const char *dir;
@@ -141,6 +143,7 @@ static const struct option options[] = {
 	{ "lowerdir", required_argument, NULL, ARG_LOWER_DIR, },
 	{ "upperdir", required_argument, NULL, ARG_UPPER_DIR, },
 	{ "workdir", required_argument, NULL, ARG_WORK_DIR, },
+	{ "mountdir", required_argument, NULL, ARG_MERGE_DIR, },
 };
 
 static void help(void)
@@ -150,7 +153,8 @@ static void help(void)
 	       "-u, --users[=UIDBASE[:NUIDS]]	Set the user namespace shift\n"
 	       "    --lowerdir=dir	Overlay lower directory\n"
 	       "    --upperdir=dir	Overlay upper directory\n"
-	       "    --workdir=dir	Overlay work directory\n",
+	       "    --workdir=dir	Overlay work directory\n"
+	       "    --mountdir=dir	Overlay merged directory\n",
 	       program_name);
 }
 
@@ -371,19 +375,19 @@ static int dev_fd_setup(const char *root)
 }
 
 static int mount_overlay(const char *lower, const char *upper,
-			 const char *work)
+			 const char *work, const char *merge)
 {
 	int ret;
-	char *options;
+	char *buf;
 
-	options = alloca(1024);
-	if (!options) {
+	buf = alloca(1024);
+	if (!buf) {
 		ret = -errno;
 		printf("alloca() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
-	ret = snprintf(options, 1024, "lowerdir=%s,upperdir=%s,workdir=%s,shift_uids,shift_gids",
+	ret = snprintf(buf, 1024, "lowerdir=%s,upperdir=%s,workdir=%s,shift_uids,shift_gids",
 		       lower, upper, work);
 	if (ret < 0) {
 		ret = -errno;
@@ -391,10 +395,37 @@ static int mount_overlay(const char *lower, const char *upper,
 		return ret;
 	}
 
-	ret = mount("overlay", upper, "overlay", 0, options);
+	ret = mount("overlay", merge, "overlay", 0, buf);
 	if (ret < 0) {
 		ret = -errno;
-		printf("failed to mount() %s: %d (%m)\n", upper, ret);
+		printf("failed to mount() %s: %d (%m)\n", merge, ret);
+		return ret;
+	}
+
+	ret = userns_lchown(merge, 0, 0);
+	if (ret < 0) {
+		printf("failed to lchown() %s: %d (%m)\n",
+		       merge, ret);
+		return ret;
+	}
+
+	ret = userns_lchown(work, 0, 0);
+	if (ret < 0) {
+		printf("failed to lchown() %s: %d (%m)\n", work, ret);
+		return ret;
+	}
+
+	/* TODO: hack to make overlayfs work */
+	ret = snprintf(buf, 1024, "%s/work", work);
+	if (ret < 0) {
+		printf("snprintf() failed: %d (%m)\n", ret);
+		return ret;
+	}
+
+	ret = userns_lchown(buf, 0, 0);
+	if (ret < 0) {
+		printf("failed to lchown() %s: %d (%m)\n",
+		       buf, ret);
 		return ret;
 	}
 
@@ -729,25 +760,13 @@ static int test_uidshift_mount(void)
 		return ret;
 	}
 
-	ret = mount_overlay(arg_lower, arg_upper, arg_work);
+	ret = mount_overlay(arg_lower, arg_upper, arg_work, arg_merge);
 	if (ret < 0) {
 		printf("mount_overlay() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
-	ret = userns_lchown(arg_upper, 0, 0);
-	if (ret < 0) {
-		printf("failed to lchown() %s : %d (%m)\n", arg_upper, ret);
-		return ret;
-	}
-
-	ret = userns_lchown(arg_work, 0, 0);
-	if (ret < 0) {
-		printf("failed to lchown() %s: %d (%m)\n", arg_work, ret);
-		return ret;
-	}
-
-	ret = setup_basic_filesystem(arg_upper, arg_uid_shift,
+	ret = setup_basic_filesystem(arg_merge, arg_uid_shift,
 				     (gid_t) arg_uid_shift, false);
 	if (ret < 0) {
 		ret = -errno;
@@ -755,21 +774,21 @@ static int test_uidshift_mount(void)
 		return ret;
 	}
 
-	ret = copy_devnodes(arg_upper);
+	ret = copy_devnodes(arg_merge);
 	if (ret < 0) {
 		ret = -errno;
 		printf("copy_devnodes() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
-	ret = dev_fd_setup(arg_upper);
+	ret = dev_fd_setup(arg_merge);
 	if (ret < 0) {
 		ret = -errno;
 		printf("dev_fs_setup() failed: %d (%m)\n", ret);
 		return ret;
 	}
 
-	ret = setup_move_root(arg_upper);
+	ret = setup_move_root(arg_merge);
 	if (ret < 0) {
 		ret = -errno;
 		printf("setup_move_root() failed: %d (%m)\n", ret);
@@ -970,13 +989,19 @@ int main(int argc, char *argv[])
 				dir_cnt++;
 			break;
 
+		case ARG_MERGE_DIR:
+			arg_merge = strndup(optarg, strlen(optarg));
+
+			if (arg_merge)
+				dir_cnt++;
 		default:
 			break;
 		}
 	}
 
-	if (dir_cnt != 3) {
+	if (dir_cnt != 4) {
 		fprintf(stderr, "failed to parse overlay dirs\n");
+		help();
 		exit(EXIT_FAILURE);
 	}
 
