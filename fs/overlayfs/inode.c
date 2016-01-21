@@ -69,10 +69,21 @@ out:
 static int ovl_getattr(struct vfsmount *mnt, struct dentry *dentry,
 			 struct kstat *stat)
 {
+	int ret;
 	struct path realpath;
+	struct ovl_fs *ofs = dentry->d_sb->s_fs_info;
+	struct inode *inode = d_backing_inode(dentry);
 
 	ovl_path_real(dentry, &realpath);
-	return vfs_getattr(&realpath, stat);
+	ret = vfs_getattr(&realpath, stat);
+	if (ret)
+		return ret;
+
+	/* shift UID and GID if necessary */
+	stat->uid = ovl_vfs_shift_kuid(ofs, inode->i_uid);
+	stat->gid = ovl_vfs_shift_kgid(ofs, inode->i_gid);
+
+	return 0;
 }
 
 int ovl_permission(struct inode *inode, int mask)
