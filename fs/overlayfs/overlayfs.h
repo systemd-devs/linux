@@ -183,8 +183,9 @@ struct inode *ovl_new_inode(struct super_block *sb, umode_t mode,
 			    struct ovl_entry *oe);
 static inline void ovl_copyattr(struct inode *from, struct inode *to)
 {
-	to->i_uid = from->i_uid;
-	to->i_gid = from->i_gid;
+	struct ovl_fs *ofs = to->i_sb->s_fs_info;
+	to->i_uid = ovl_vfs_shift_kuid(ofs, from->i_uid);
+	to->i_gid = ovl_vfs_shift_kgid(ofs, from->i_gid);
 }
 
 /* dir.c */
