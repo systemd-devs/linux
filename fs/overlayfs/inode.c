@@ -10,6 +10,8 @@
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/xattr.h>
+#include <linux/sched.h>
+#include <linux/cred.h>
 #include "overlayfs.h"
 
 static int ovl_copy_up_truncate(struct dentry *dentry)
@@ -86,12 +88,74 @@ static int ovl_getattr(struct vfsmount *mnt, struct dentry *dentry,
 	return 0;
 }
 
+/*
+ * Remap fsuid for overlayfs permission check in case if the
+ * constructed kuid from inode uid value is valid and
+ * 1) has a mapping in the current user namespace and
+ * 2) equals the current_fsuid() or
+ */
+static bool ovl_permission_remap_fsuid(struct ovl_fs *ofs,
+				       struct inode *inode)
+{
+	kuid_t uid;
+	struct user_namespace *user_ns = current_user_ns();
+
+	if (!ovl_config_shift_uids(ofs))
+		return false;
+
+	/* No mapping is needed in this case */
+	if (uid_eq(current_fsuid(), inode->i_uid))
+		return false;
+
+	uid = ovl_vfs_shift_kuid(ofs, inode->i_uid);
+	/* fail if uid not valid or namespace crossed */
+	if (!uid_valid(uid) || !kuid_has_mapping(user_ns, uid))
+		return false;
+
+	if (uid_eq(current_fsuid(), uid))
+		return true;
+
+	return false;
+}
+
+/*
+ * Remap fsgid if the constructed kgid from inode gid value is
+ * valid and it equals the current_fsgid()
+ */
+static bool ovl_permission_remap_fsgid(struct ovl_fs *ofs,
+				       struct inode *inode)
+{
+	kgid_t gid;
+	struct user_namespace *user_ns = current_user_ns();
+
+	if (!ovl_config_shift_gids(ofs))
+		return false;
+
+	/* No mapping is needed in this case */
+	if (gid_eq(current_fsgid(), inode->i_gid))
+		return false;
+
+	gid = ovl_vfs_shift_kgid(ofs, inode->i_gid);
+	/* fail if gid not valid or namespace crossed */
+	if (!gid_valid(gid) || !kgid_has_mapping(user_ns, gid))
+		return false;
+
+	if (gid_eq(current_fsgid(), gid))
+		return true;
+
+	return false;
+}
+
 int ovl_permission(struct inode *inode, int mask)
 {
 	struct ovl_entry *oe;
 	struct dentry *alias = NULL;
 	struct inode *realinode;
 	struct dentry *realdentry;
+	const struct cred *old_cred = NULL;
+	struct cred *override_cred;
+	struct ovl_fs *ofs = inode->i_sb->s_fs_info;
+	bool remap_fsuid = false, remap_fsgid = false;
 	bool is_upper;
 	int err;
 
@@ -143,7 +207,40 @@ int ovl_permission(struct inode *inode, int mask)
 			goto out_dput;
 	}
 
+	/*
+	 * Check if we should map current's fsuid and fsgid to the
+	 * corresponding inode->i_uid and inode->i_gid in order to
+	 * perform a basic permission check. We want to success at
+	 * acl_permission_check()
+	 *
+	 * Before updating fsuid and fsgid we do the UID and GID
+	 * shifting according to the VFS user namespace shift rules.
+	 */
+	remap_fsuid = ovl_permission_remap_fsuid(ofs, realinode);
+	remap_fsgid = ovl_permission_remap_fsgid(ofs, realinode);
+
+	if (remap_fsuid || remap_fsgid) {
+		if (mask & MAY_NOT_BLOCK)
+			return -ECHILD;
+
+		override_cred = prepare_creds();
+		if (!override_cred)
+			goto out_dput;
+
+		if (remap_fsuid)
+			override_cred->fsuid = realinode->i_uid;
+
+		if (remap_fsgid)
+			override_cred->fsgid = realinode->i_gid;
+
+		old_cred = override_creds(override_cred);
+	}
+
 	err = __inode_permission(realinode, mask);
+	if (old_cred) {
+		revert_creds(old_cred);
+		put_cred(override_cred);
+	}
 out_dput:
 	dput(alias);
 	return err;

@@ -64,6 +64,16 @@ struct ovl_entry {
 
 #define OVL_MAX_STACK 500
 
+int ovl_config_shift_uids(struct ovl_fs *ofs)
+{
+	return ofs->config.shift_uids;
+}
+
+int ovl_config_shift_gids(struct ovl_fs *ofs)
+{
+	return ofs->config.shift_gids;
+}
+
 kuid_t ovl_vfs_shift_kuid(struct ovl_fs *ofs, kuid_t kuid)
 {
 	if (ofs->config.shift_uids)

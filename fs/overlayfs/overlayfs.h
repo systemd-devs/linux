@@ -176,6 +176,8 @@ ssize_t ovl_listxattr(struct dentry *dentry, char *list, size_t size);
 int ovl_removexattr(struct dentry *dentry, const char *name);
 struct inode *ovl_d_select_inode(struct dentry *dentry, unsigned file_flags);
 
+int ovl_config_shift_uids(struct ovl_fs *ofs);
+int ovl_config_shift_gids(struct ovl_fs *ofs);
 kuid_t ovl_vfs_shift_kuid(struct ovl_fs *ofs, kuid_t kuid);
 kgid_t ovl_vfs_shift_kgid(struct ovl_fs *ofs, kgid_t kgid);
 
